@@ -1,3 +1,28 @@
 #!/bin/sh
-# Development wrapper: builds if needed, then runs the CLI from any directory, e.g. ./pampas usage
-exec cargo run -q --manifest-path "$(dirname "$0")/Cargo.toml" -- "$@"
+# Development wrapper. Builds if needed, then runs from any directory:
+#   ./pampas "prompt"      the command line (default)
+#   ./pampas usage         any subcommand, as `pampas usage`
+#   ./pampas --gui         the GUI, in development mode (needs `cargo tauri`; see the README)
+root="$(cd "$(dirname "$0")" && pwd)"
+
+if [ "$1" = "--gui" ]; then
+    shift
+    if [ ! -d "$root/src-tauri" ]; then
+        echo "the GUI is not built yet: there is no src-tauri directory (see TODO.md, GUI 3 to 6)" >&2
+        exit 1
+    fi
+    if ! command -v cargo-tauri >/dev/null 2>&1; then
+        echo "cargo-tauri is not installed: run \`cargo install tauri-cli\`" >&2
+        exit 1
+    fi
+    if ! command -v npm >/dev/null 2>&1; then
+        echo "npm is not installed: the interface is built with Node (https://nodejs.org)" >&2
+        exit 1
+    fi
+    [ -d "$root/ui/node_modules" ] || npm --prefix "$root/ui" install || exit 1
+    # Build the interface first, then the app: they must not run at the same time.
+    npm --prefix "$root/ui" run build || exit 1
+    cd "$root/src-tauri" && exec cargo tauri dev "$@"
+fi
+
+exec cargo run -q --manifest-path "$root/Cargo.toml" -- "$@"

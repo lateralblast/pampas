@@ -11,6 +11,10 @@ use crate::usage::{LimitReached, SharedUsage};
 pub trait Provider: Send + Sync {
     fn name(&self) -> &str;
     fn ask<'a>(&'a self, prompt: &'a str) -> Pin<Box<dyn Future<Output = anyhow::Result<String>> + Send + 'a>>;
+    /// This provider's own timeout in seconds, if its config sets one; `--timeout` overrides it.
+    fn timeout(&self) -> Option<u64> {
+        None
+    }
 }
 
 /// One entry in the providers config file.
@@ -39,6 +43,10 @@ pub struct ProviderConfig {
     /// Most requests to make per UTC day; the provider is skipped once it is used up.
     #[serde(default)]
     pub daily_limit: Option<u32>,
+    /// Seconds to wait for this provider, instead of the default 30; the `--timeout` flag overrides it.
+    /// Useful for large local models, which are slow to load and to answer.
+    #[serde(default)]
+    pub timeout: Option<u64>,
     /// Name under which requests are counted, default the provider's own name. Entries that share a
     /// service account (and so its quota) can share a group.
     #[serde(default)]
@@ -190,6 +198,10 @@ impl Provider for OpenAiCompatible {
         &self.config.name
     }
 
+    fn timeout(&self) -> Option<u64> {
+        self.config.timeout
+    }
+
     fn ask<'a>(&'a self, prompt: &'a str) -> Pin<Box<dyn Future<Output = anyhow::Result<String>> + Send + 'a>> {
         Box::pin(async move {
             let first = self.ask_model(&self.config.model, prompt).await;
@@ -289,7 +301,8 @@ impl ProviderEntry {
         }
     }
 
-    fn enabled(&self) -> bool {
+    /// Whether the entry runs without `--enable`.
+    pub fn enabled(&self) -> bool {
         match self {
             Self::OpenAi(c) => c.enabled,
             Self::AppleFm(c) => c.enabled,
@@ -431,6 +444,15 @@ mod tests {
     #[test]
     fn empty_choices_is_an_error() {
         assert!(parse_reply(r#"{"choices":[]}"#).is_err());
+    }
+
+    #[test]
+    fn timeout_is_optional() {
+        let cfg = r#"[{"name":"a","base_url":"u","model":"m"},{"name":"b","base_url":"u","model":"m","timeout":180}]"#;
+        let parsed = parse_config(cfg).unwrap();
+        let timeouts: Vec<Option<u64>> =
+            parsed.iter().map(|e| if let ProviderEntry::OpenAi(c) = e { c.timeout } else { None }).collect();
+        assert_eq!(timeouts, vec![None, Some(180)]);
     }
 
     #[test]

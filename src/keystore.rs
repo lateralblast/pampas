@@ -2,12 +2,10 @@
 //! (macOS Keychain, or the Secret Service on Linux). Keys are stored under the same name as the
 //! environment variable, e.g. `GROQ_API_KEY`.
 
-use anyhow::Context;
-
 const SERVICE: &str = "pampas";
 
 /// Somewhere keys can be stored by name.
-pub trait KeyStore {
+pub trait KeyStore: Send + Sync {
     fn get(&self, name: &str) -> anyhow::Result<Option<String>>;
     fn set(&self, name: &str, key: &str) -> anyhow::Result<()>;
     /// Returns whether a key was there to delete.
@@ -17,8 +15,24 @@ pub trait KeyStore {
 /// The operating system's native credential store.
 pub struct Keychain;
 
+/// What went wrong with the keychain, and what to do instead when it is simply not there (no
+/// Secret Service running, as on a headless Linux server, or access refused).
+fn describe(error: &keyring::Error, name: &str) -> String {
+    match error {
+        keyring::Error::NoDefaultStore | keyring::Error::NoStorageAccess(_) | keyring::Error::PlatformFailure(_) => {
+            format!("the OS keychain is not available ({error}); set the environment variable instead: export {name}=<key>")
+        }
+        other => other.to_string(),
+    }
+}
+
 fn entry(name: &str) -> anyhow::Result<keyring::Entry> {
-    keyring::Entry::new(SERVICE, name).context("the OS keychain is not available")
+    keyring::Entry::new(SERVICE, name).map_err(|e| anyhow::anyhow!(describe(&e, name)))
+}
+
+/// Wrap a keychain failure from reading, writing or deleting `name`.
+fn failed(action: &str, name: &str, error: keyring::Error) -> anyhow::Error {
+    anyhow::anyhow!("{action} the OS keychain: {}", describe(&error, name))
 }
 
 impl KeyStore for Keychain {
@@ -26,19 +40,19 @@ impl KeyStore for Keychain {
         match entry(name)?.get_password() {
             Ok(key) => Ok(Some(key)),
             Err(keyring::Error::NoEntry) => Ok(None),
-            Err(e) => Err(e).context("reading from the OS keychain"),
+            Err(e) => Err(failed("reading from", name, e)),
         }
     }
 
     fn set(&self, name: &str, key: &str) -> anyhow::Result<()> {
-        entry(name)?.set_password(key).context("writing to the OS keychain")
+        entry(name)?.set_password(key).map_err(|e| failed("writing to", name, e))
     }
 
     fn delete(&self, name: &str) -> anyhow::Result<bool> {
         match entry(name)?.delete_credential() {
             Ok(()) => Ok(true),
             Err(keyring::Error::NoEntry) => Ok(false),
-            Err(e) => Err(e).context("deleting from the OS keychain"),
+            Err(e) => Err(failed("deleting from", name, e)),
         }
     }
 }
@@ -62,23 +76,31 @@ pub fn resolve(name: &str, env: Option<String>, store: &dyn KeyStore) -> anyhow:
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn an_unavailable_keychain_points_at_the_environment_variable() {
+        let msg = describe(&keyring::Error::NoDefaultStore, "GROQ_API_KEY");
+        assert!(msg.contains("not available"), "{msg}");
+        assert!(msg.contains("export GROQ_API_KEY=<key>"), "{msg}");
+        assert_eq!(describe(&keyring::Error::NoEntry, "K"), keyring::Error::NoEntry.to_string());
+    }
+
     use super::*;
-    use std::cell::RefCell;
+    use std::sync::Mutex;
     use std::collections::HashMap;
 
     #[derive(Default)]
-    struct Memory(RefCell<HashMap<String, String>>);
+    struct Memory(Mutex<HashMap<String, String>>);
 
     impl KeyStore for Memory {
         fn get(&self, name: &str) -> anyhow::Result<Option<String>> {
-            Ok(self.0.borrow().get(name).cloned())
+            Ok(self.0.lock().unwrap().get(name).cloned())
         }
         fn set(&self, name: &str, key: &str) -> anyhow::Result<()> {
-            self.0.borrow_mut().insert(name.into(), key.into());
+            self.0.lock().unwrap().insert(name.into(), key.into());
             Ok(())
         }
         fn delete(&self, name: &str) -> anyhow::Result<bool> {
-            Ok(self.0.borrow_mut().remove(name).is_some())
+            Ok(self.0.lock().unwrap().remove(name).is_some())
         }
     }
 

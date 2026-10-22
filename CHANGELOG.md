@@ -4,6 +4,122 @@ Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.4.9] - 2026-10-23
+
+### Added
+
+- A **History** tab in the app. Each finished question is saved automatically with its question, merged reading and every answer, and the tab lists the sessions by day, newest first. Open one to read it again exactly as it was, **Ask again** to put the question back in the Ask tab, delete one (a second press confirms) or **Delete all history**, find a question by typing part of it, and switch saving off with **Save new questions to the history**. `Ctrl`/`⌘` + `5` opens it.
+- `history.json` in the state directory (beside `usage.json`) holds the sessions, at most the newest 200, written atomically; an unreadable file is moved to `history.json.corrupt` so nothing is lost. The code is `pampas::history` in the library, so the command line can use it later.
+- App backend commands `list_history`, `get_history`, `save_history`, `delete_history`, `clear_history` and `import_history`.
+
+### Changed
+
+- The "Earlier questions" list on the Ask tab is gone: it was kept in the webview's local storage. Sessions kept there are moved into `history.json` once, the first time this version starts, and the old copy is removed.
+- Turning history off in the History tab takes effect at once; `Ctrl`/`⌘` + `1` to `5` switch tabs (were `1` to `4`).
+
+## [0.4.8] - 2026-10-23
+
+### Added
+
+- **Save as…** in the app: a menu on each answer set that saves it as Markdown (`.md`), plain text (`.txt`) or JSON (`.json`) through the system's save dialog. The files use the command line's own renderer (the same as `pampas -f markdown|text|json -o file`), with the question added at the top of Markdown and text files (JSON already carries it): the merged reading first, then each answer; sources that did not answer are left out of Markdown and text and marked `"ok": false` in JSON. The save dialog is opened by the app's backend, not by the page, so the page never supplies a file path. The file name suggested is `pampas-` and the first words of the question.
+- The app uses the `tauri-plugin-dialog` crate for the save dialog.
+
+### Changed
+
+- The copy buttons in the app (`Copy everything`, `Copy the reading`, and each source's `Copy`) now say "Copied" on the button for a moment (or "Could not copy"); before, only screen readers were told. `Copy everything` copies the same Markdown as **Save as… › Markdown**.
+
+## [0.4.7] - 2026-10-23
+
+### Changed
+
+- The app's window icon is now the 128 px version of `pampas.png`, so the tiger is sharp in task switchers and docks (it was the 32 px one). The bundle icons for macOS (`icon.icns`), Windows (`icon.ico`) and Linux (`icon.png`) were already generated from `pampas.png`; regenerate them all with `cargo tauri icon pampas.png -o src-tauri/icons` (then delete the `android` and `ios` folders it adds, which this app does not use). Putting the 512 px file first in `bundle.icon` made Tauri set no window icon at all, so keep `icons/128x128.png` first.
+
+## [0.4.6] - 2026-10-23
+
+### Added
+
+- The desktop app's interface (`ui/`, plain HTML, CSS and TypeScript, no framework), built as a critical edition of the answers: the question, then the merged "reading" with boxed sigla (a, b, c) marking each source in the text, then each source as a witness row, then a "Not heard" list that says in plain words why a source failed or was left out before asking, and where to fix it. Answers arrive row by row as each source finishes (rows already shown are left untouched, so an opened "Technical detail" or a text selection survives; the one that just arrived settles in). The boxed letters in the reading are buttons that jump to that source's answer. Pages: Ask (question, sources to ask, merge, earlier questions kept in the app's local storage, first-run steps), Sources (full editor for `providers.json` with a plain-language form, reorder, remove, add from the built-in list, save bar, JSON text view), Keys & settings (write-only keys with where to get each, settings), and Usage (today's counts against each limit).
+- It follows the system light and dark theme and the reduced-motion setting, works with the keyboard (`Ctrl`/`⌘`+`Enter` asks, `Ctrl`/`⌘`+`1` to `4` switch pages, arrow keys move between tabs), announces answers and errors to screen readers, and reflows down to a narrow window. Model answers are rendered as safe markdown: HTML is escaped and links are shown as text with their address, never as clickable links.
+- `ui/dev/` (development only): a mock backend and a small server, so the interface can be tried in an ordinary browser (`node ui/dev/serve.mjs`, then `http://127.0.0.1:8765/dev/`), and a screenshot script.
+- `example_config` command for the GUI's "add a source" list.
+- `npm --prefix ui test` tests the markdown renderer, the siglum logic and the failure explanations.
+
+### Changed
+
+- `./pampas --gui` installs the front end's tools on first use and builds the interface before starting the app (run `npm --prefix ui run build` yourself before a bare `cargo tauri dev`); `cargo tauri build` builds it first on its own.
+- The app's security policy (`csp`) is set instead of left open.
+- `tests/version_sync.rs` also checks `ui/package.json`.
+
+## [0.4.5] - 2026-10-23
+
+### Added
+
+- The GUI's backend, in `src-tauri` (a Tauri 2 app, `pampas-gui`, in a Cargo workspace with the command line): commands to list the providers with their key status and usage, read, validate and save `providers.json` (the field order is kept, the old file is kept as `providers.json.bak`, and nothing is written if validation fails), create the config from the bundled example, set and delete keys and settings, show usage, and ask the providers, with an event as each one answers. The window itself is a placeholder page until the interface is built. `./pampas --gui` starts it.
+- `engine::fan_out_each`, which reports each provider's reply as it arrives.
+
+### Changed
+
+- `KeyStore` requires `Send + Sync`, so a key store can be used from the app's threads.
+- `tests/version_sync.rs` also checks `src-tauri/Cargo.toml` and `src-tauri/tauri.conf.json`.
+
+## [0.4.4] - 2026-10-23
+
+### Changed
+
+- The logic behind a run now lives in a library (`src/lib.rs`, with `src/engine.rs` for loading the config, building the providers, asking them, merging, and the key, usage and settings tables) and `src/main.rs` is a thin command line over it, ready for the GUI to use the same code. Warnings and notices are returned as data instead of printed. No change to the command-line behaviour: the tables, messages and flags are as before.
+
+## [0.4.3] - 2026-10-23
+
+### Added
+
+- Platform file locations in one place (`src/paths.rs`): Linux is unchanged; macOS now uses `~/Library/Application Support/pampas`; Windows uses `%APPDATA%\pampas` for config and settings and `%LOCALAPPDATA%\pampas` for usage, and no longer needs `HOME`. An `XDG_*` variable still overrides the default on Linux and macOS.
+- `pampas migrate` moves files from the old macOS locations (`~/.config/pampas`, `~/.local/state/pampas`) to the new ones, never overwriting. Until it is run, old files are still used when nothing exists at the new location, with a note on stderr.
+- `README.md`: a File locations section.
+
+### Changed
+
+- The `README.md` environment variable table lists the Windows variables and says the `XDG_*` variables apply to Linux and macOS.
+
+## [0.4.2] - 2026-10-23
+
+### Added
+
+- A `timeout` field on a provider entry gives that provider its own wait, in seconds, instead of the default 30. The `ollama` and `ollama-remote` example entries use 180.
+
+### Changed
+
+- `--timeout` no longer has a default of its own: without it a provider uses its entry's `timeout`, else 30. When given, it applies to every provider for that run and overrides entries, as before. The `--merge` call uses the synthesizer's timeout in the same way.
+
+## [0.4.1] - 2026-10-23
+
+### Added
+
+- When `~/.config/pampas/providers.json` does not exist and `pampas usage`, `pampas key list` or a prompt run is started on a terminal, pampas asks `Create it from the bundled example? [y/N]` and writes the file on `y`. With no terminal, or with a `--config` path (which is never created, so a typo is reported), it fails with the usual message pointing at `pampas init`.
+
+## [0.4.0] - 2026-10-23
+
+### Fixed
+
+- Output piped into a command that closes early (`pampas usage | head -1`) no longer panics with "failed printing to stdout: Broken pipe"; the process ends quietly, as other command-line tools do. The new dependency is `libc`, on Unix only.
+
+## [0.3.9] - 2026-10-23
+
+### Fixed
+
+- Options can now come before a subcommand: `pampas --config <path> key list` and `pampas --usage-file <path> usage` work, as `pampas key list --config <path>` already did. Before, clap reported "the subcommand ... cannot be used with --config".
+
+## [0.3.8] - 2026-10-23
+
+### Changed
+
+- When the OS keychain is unavailable (no Secret Service running, access refused), the error now says so and tells you to set the key as an environment variable (`export GROQ_API_KEY=<key>`), instead of "No default store has been set". It applies to `key set`, `key list`, `key delete` and normal runs.
+
+## [0.3.7] - 2026-10-23
+
+### Changed
+
+- `README.md` Providers table: Cohere's trial-key limits are confirmed from its docs (1,000 calls a month, 20 a minute per Chat model), and Cloudflare's 10,000 Neurons a day and 300 requests a minute are confirmed, with a rough requests-a-day estimate. Groq and NVIDIA now give the figures found and how reliable each is; Gemini notes that Google publishes none and that third-party reports conflict. No `daily_limit` changed.
+
 ## [0.3.6] - 2026-10-23
 
 ### Changed

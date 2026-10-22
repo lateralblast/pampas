@@ -106,12 +106,14 @@
     "name": "ollama",
     "base_url": "http://localhost:11434/v1",
     "model": "qwen2.5:7b",
+    "timeout": 180,
     "enabled": false
   },
   {
     "name": "ollama-remote",
     "base_url": "http://${OLLAMA_REMOTE_HOST}:11434/v1",
     "model": "gemma4:12b",
+    "timeout": 180,
     "enabled": false
   },
   {
