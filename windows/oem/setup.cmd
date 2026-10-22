@@ -1,4 +1,6 @@
 @echo off
+rem setlocal: this script sets ROOT, LOG and PATH; build.cmd calls it and must not see them change (its log went missing once)
+setlocal
 rem Installs what is still missing after Visual Studio Build Tools and Rust: Node (builds the interface in ui\), NASM and
 rem CMake (the rustls crypto library, aws-lc-sys, needs them on Windows) and tauri-cli. All are plain zip downloads
 rem unpacked with the tar that ships with Windows, so nothing here asks questions. Safe to run again; install.bat

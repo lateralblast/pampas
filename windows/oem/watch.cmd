@@ -8,7 +8,10 @@ goto loop
 
 rem A subroutine, because %ARGS% inside a parenthesised block would be expanded before set /p ran
 :request
+rem setlocal: whatever build.cmd sets (it once set OUT, which made the watcher poll the wrong folder for ever) is dropped afterwards
+setlocal
 set /p ARGS=<"%OUT%\build.request"
 del "%OUT%\build.request"
 call C:\pampas\build.cmd %ARGS%
+endlocal
 goto :eof

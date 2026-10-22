@@ -4,6 +4,21 @@ Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-23
+
+### Added
+
+- `build.sh`: builds the app installer and the `pampas` command-line binary into `dist/` (not committed). `--target linux` (deb, rpm or AppImage, natively on Linux), `--target windows`, `--target mac`, with `--docker`, `--arch`, `--package` and `--no-cli`. It builds the interface first and never commits, tags or publishes. Adapted from the build process of bobcat, the author's other Tauri app.
+- A Windows 11 virtual machine for building the Windows installer on a Linux host: `windows/vm.py` (`up`, `status`, `build [--manage]`, `down`), `windows/compose.yml` (the `dockurr/windows` image under QEMU/KVM, viewer on port 8008, disk in `~/.local/share/pampas/windows`) and the scripts that run inside Windows (`windows/oem/`, kept with CRLF line endings by `.gitattributes`). `./build.sh --target windows` starts the VM, builds, copies the installer and `pampas.exe` out and stops the VM again.
+- `docker/linux` (Linux packages in an Ubuntu 24.04 container, the default on a Mac) and `docker/windows` (Windows installer cross-built with MinGW in a container, the default on a Mac).
+- macOS build settings copied from bobcat's working process: ad hoc signing, a minimum macOS version, and `src-tauri/Info.plist` with the local-network usage note (so macOS lets the app reach an Ollama server on the LAN). Not yet run on a Mac.
+- Package details in `src-tauri/tauri.conf.json`: category, description and publisher.
+- A "Building installers" section in the README, with what has and has not been tested.
+
+### Fixed
+
+- (in the new Windows scripts, before release) the build watcher stopped seeing requests after a build script changed a variable the watcher shared; each request and `setup.cmd` now run in their own environment. The VM's install script registers the watcher first, and `build.cmd` installs any build tool that is missing, because the install script stopped after the Rust step on the first VM.
+
 ## [0.4.9] - 2026-10-23
 
 ### Added

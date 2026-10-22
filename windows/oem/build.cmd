@@ -1,4 +1,5 @@
 @echo off
+setlocal
 rem (C:\pampas\build.cmd in the VM is a stub that calls this file from the share, so edits here apply at once.)
 rem Copies the repository out of the read-only share, builds the interface (Node), the GUI installer (NSIS) and the
 rem pampas command-line binary, and copies them back to out\bundle (nsis\ and cli\). Arguments are ignored (kept for
@@ -14,7 +15,11 @@ rem Never use RC as a variable name: embed-resource reads it as the path of rc.e
 for /d %%d in ("C:\Program Files (x86)\Windows Kits\10\bin\10.*") do if exist "%%d\x64\rc.exe" set "SDKBIN=%%d\x64"
 set PATH=%SDKBIN%;C:\pampas\cargo\bin;C:\pampas\node-v22.14.0-win-x64;C:\pampas\nasm-2.16.03;C:\pampas\cmake-3.31.6-windows-x86_64\bin;%PATH%
 del "%SHARE%\out\build.done" 2>nul
-del "%LOG%" 2>nul
+del "%SHARE%\out\build.log" 2>nul
+rem Self-healing: installs any build tool that is missing (Node, NASM, CMake, tauri-cli); instant when they are all there
+echo Checking the build tools >> "%LOG%"
+copy /Y "%SHARE%\out\oem\setup.cmd" C:\pampas\setup.cmd >nul
+call C:\pampas\setup.cmd >> "%LOG%" 2>&1
 rmdir /S /Q "%SHARE%\out\bundle" 2>nul
 echo Copying the repository >> "%LOG%"
 rem /XD keeps target\ and node_modules\ between builds (excluded folders are not deleted from the copy), so only the first build compiles everything

@@ -2,7 +2,7 @@
 
 # pampas
 
-Version: 0.4.9
+Version: 0.5.0
 
 **pampas** is short for Parallel AI Multi-provider Prompt Aggregator & Synthesizer: a command-line tool and desktop app that send one prompt to several free AI services in parallel and merge the results.
 
@@ -456,11 +456,23 @@ Add `--no-cli` to skip the command-line binary. An installer can only be built w
 
 `./build.sh --target windows` on Linux runs `python3 windows/vm.py build --manage`: it starts a Windows 11 virtual machine ([`dockurr/windows`](https://github.com/dockur/windows), QEMU with KVM, run by Docker), builds in it, copies the results back and stops the VM again. The repository is shared into the VM read-only, and `windows/out/` carries logs and results (`build.log`, `install.log`, `bundle/`).
 
-1. **Once:** `python3 windows/vm.py up`. Docker downloads Windows (about 5 GB) and installs it, then installs Visual Studio Build Tools, Rust, Node, NASM, CMake and `tauri-cli`. Allow an hour or more. Watch it at http://127.0.0.1:8008 and check with `python3 windows/vm.py status` (it says when the build tools are ready). The VM needs 8 GB of memory and 8 cores while it runs; its disk is kept in `~/.local/share/pampas/windows` (about 20 GB used; set `PAMPAS_WINDOWS_STORAGE` to keep it elsewhere). Windows is Microsoft's software, used under its own licence terms.
-2. **Each build:** `./build.sh --target windows`. The first build compiles everything in the VM and takes a good while; later ones reuse its build folder.
+1. **Once:** `python3 windows/vm.py up`. Docker downloads Windows (about 5 GB) and installs it, then installs Visual Studio Build Tools, Rust, Node, NASM, CMake and `tauri-cli`. Allow about 45 minutes (Windows and the Visual Studio tools took 39, the rest about 6). Watch it at http://127.0.0.1:8008 and check with `python3 windows/vm.py status` (it says when the build tools are ready). The VM needs 8 GB of memory and 8 cores while it runs; its disk is kept in `~/.local/share/pampas/windows` (about 20 GB used; set `PAMPAS_WINDOWS_STORAGE` to keep it elsewhere). Windows is Microsoft's software, used under its own licence terms.
+2. **Each build:** `./build.sh --target windows`. The first build compiles everything in the VM and takes a good while; later ones reuse its build folder and take a few minutes. `build.sh` starts the VM if it is stopped (a cold start adds a couple of minutes) and stops it again afterwards; a VM you started yourself with `vm.py up` is left running.
 3. **Commands:** `vm.py up|status|build|down`. `down` stops the VM and keeps its disk.
 
-If a build never starts (`windows/out/build.request` stays and no `build.log` appears), the watcher inside the VM is not running: `docker restart -t 150 pampas-windows`, then, in the VM (use the web viewer), run `\\host.lan\Data\out\oem\refresh.cmd` from a command prompt; it reinstalls the watcher.
+If a build never starts (`windows/out/build.request` stays and no `build.log` appears), the watcher inside the VM is not running: `docker restart -t 150 pampas-windows`, then, in the VM (use the web viewer), press Win+R and run `\\host.lan\Data\out\oem\watch.cmd` (answer Run to the warning) to start the watcher again. `\\host.lan\Data\out\oem\refresh.cmd` installs the current scripts into the VM, for when they have changed since it was set up. A first request sometimes takes a minute or two to be noticed; a request that waits much longer means the watcher is not running.
+
+### What has been tested
+
+| Route | Result |
+|---|---|
+| Linux, native | `.deb` and `.rpm` and the command-line binary built on Ubuntu; the `.deb` metadata and files were inspected, but neither package was installed and run |
+| Linux, in a container | `.deb` and command-line binary built in the Ubuntu 24.04 image |
+| Windows, in the VM | installer and `pampas.exe` built with MSVC, three times, including a cold start of the stopped VM that the script started and stopped itself |
+| Windows, cross build | installer and `pampas.exe` built with MinGW in a container |
+| macOS | not run: written from bobcat's process |
+
+Not tested yet: running either Windows installer, or the app, on a Windows machine; the macOS build; the AppImage package; the arm64 container build. See `TODO.md`.
 
 ### macOS
 
