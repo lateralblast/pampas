@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>pampas (development, mock backend)</title>
+<link rel="stylesheet" href="../dist/styles.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to the content</a>
+<header class="app-head">
+  <div class="brand"><img src="../dist/icon.png" alt="" width="22" height="22"><h1 class="brand-name">pampas</h1></div>
+  <div id="tabs" role="tablist" aria-label="Sections"></div>
+</header>
+<div id="message" class="message"></div>
+<main id="main">
+  <section id="panel-ask" role="tabpanel" aria-labelledby="tab-ask" tabindex="-1" hidden></section>
+  <section id="panel-history" role="tabpanel" aria-labelledby="tab-history" tabindex="-1" hidden></section>
+  <section id="panel-sources" role="tabpanel" aria-labelledby="tab-sources" tabindex="-1" hidden></section>
+  <section id="panel-keys" role="tabpanel" aria-labelledby="tab-keys" tabindex="-1" hidden></section>
+  <section id="panel-usage" role="tabpanel" aria-labelledby="tab-usage" tabindex="-1" hidden></section>
+</main>
+<div id="live-polite" class="visually-hidden" aria-live="polite" aria-atomic="true"></div>
+<div id="live-assertive" class="visually-hidden" role="alert" aria-atomic="true"></div>
+<script src="mock.js"></script>
+<script type="module" src="../dist/app.js"></script>
+</body>
+</html>

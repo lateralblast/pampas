@@ -1,0 +1,19 @@
+[package]
+name = "pampas-gui"
+version = "0.4.9"
+description = "Desktop app for pampas"
+edition = "2024"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+pampas = { path = ".." }
+anyhow = "1.0.104"
+reqwest = { version = "0.13.5", default-features = false, features = ["json", "rustls"] }
+serde = { version = "1.0.229", features = ["derive"] }
+# preserve_order keeps the field order of providers.json when the GUI edits and saves it.
+serde_json = { version = "1.0.154", features = ["preserve_order"] }
+tauri = { version = "2", features = [] }
+tokio = { version = "1.54.0", features = ["rt-multi-thread", "macros", "time"] }
+tauri-plugin-dialog = "2"
