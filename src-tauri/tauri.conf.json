@@ -32,6 +32,14 @@
       "icons/icon.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "category": "Utility",
+    "shortDescription": "Ask several free AI services at once and merge the answers",
+    "longDescription": "pampas sends one question to several free AI services in parallel, shows each answer, and can merge them into one reading that says where they agree and differ. Keys are kept in the system keychain.",
+    "macOS": {
+      "minimumSystemVersion": "11.0",
+      "signingIdentity": "-"
+    },
+    "publisher": "Richard Spindler"
   }
 }

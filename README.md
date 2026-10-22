@@ -22,6 +22,7 @@ Version: 0.4.9
 - [Cloudflare Workers AI](#cloudflare-workers-ai)
 - [Apple Intelligence](#apple-intelligence)
 - [GUI (in development)](#gui-in-development)
+- [Building installers](#building-installers)
 - [Environment variables](#environment-variables)
 - [Platform status](#platform-status)
 - [Attribution](#attribution)
@@ -436,6 +437,34 @@ To retake the screenshots: build the interface, start the server, then `VIEWPORT
 ### Icon
 
 The app icon is `pampas.png` in the repository root (the tiger icon credited under [Attribution](#attribution)). To change it, replace that file and run `cargo tauri icon pampas.png -o src-tauri/icons`, then delete the `android` and `ios` folders the command adds. Keep `icons/128x128.png` first in `bundle.icon` in `src-tauri/tauri.conf.json`: that one becomes the window icon.
+
+## Building installers
+
+`./build.sh` builds the desktop app's installer and the `pampas` command-line binary into `dist/` (not committed). It builds the interface first, so it needs [Node](https://nodejs.org) 20 or later, the Rust toolchain and `tauri-cli` (`cargo install tauri-cli --version '^2'`). It never commits, tags or publishes anything. It is adapted from the build process of the author's other Tauri app, bobcat.
+
+| Target | Command | Where it builds | Produces |
+|---|---|---|---|
+| Linux | `./build.sh --target linux [--package deb\|rpm\|appimage\|all]` | On a Linux host, natively. The default package is the distribution's own (`deb` on Debian and Ubuntu, `rpm` on Red Hat family systems, else `appimage`); `--target deb` and `--target rpm` are shortcuts; `rpm` needs `rpmbuild`. | `pampas_<version>_amd64.deb`, `pampas-<version>-1.x86_64.rpm`, `.AppImage`, and `pampas-<version>-linux` |
+| Linux, in a container | `./build.sh --target linux --docker [--arch x64\|arm64]` | In an Ubuntu 24.04 Docker container (`docker/linux`); the default on a host that is not Linux. Built against Ubuntu 24.04's web view libraries, so the package also installs on newer systems. | the same files |
+| Windows, in a VM | `./build.sh --target windows` | On a Linux host with Docker and `/dev/kvm`: in a Windows 11 virtual machine (see below). On Windows itself (for example in Git Bash) it builds natively. | `pampas_<version>_x64-setup.exe` (NSIS) and `pampas-<version>-windows.exe` |
+| Windows, cross build | `./build.sh --target windows --docker` | In a Linux container with MinGW (`docker/windows`, target `x86_64-pc-windows-gnu`); the default on a Mac. | the same files |
+| macOS | `./build.sh --target mac [--arch arm64\|x64\|universal]` | On a Mac only, natively (needs the Xcode command line tools). | `pampas_<version>_<arch>.dmg` and `pampas-<version>-mac` |
+
+Add `--no-cli` to skip the command-line binary. An installer can only be built where its web view is available, except through the VM and container routes above.
+
+### The Windows VM
+
+`./build.sh --target windows` on Linux runs `python3 windows/vm.py build --manage`: it starts a Windows 11 virtual machine ([`dockurr/windows`](https://github.com/dockur/windows), QEMU with KVM, run by Docker), builds in it, copies the results back and stops the VM again. The repository is shared into the VM read-only, and `windows/out/` carries logs and results (`build.log`, `install.log`, `bundle/`).
+
+1. **Once:** `python3 windows/vm.py up`. Docker downloads Windows (about 5 GB) and installs it, then installs Visual Studio Build Tools, Rust, Node, NASM, CMake and `tauri-cli`. Allow an hour or more. Watch it at http://127.0.0.1:8008 and check with `python3 windows/vm.py status` (it says when the build tools are ready). The VM needs 8 GB of memory and 8 cores while it runs; its disk is kept in `~/.local/share/pampas/windows` (about 20 GB used; set `PAMPAS_WINDOWS_STORAGE` to keep it elsewhere). Windows is Microsoft's software, used under its own licence terms.
+2. **Each build:** `./build.sh --target windows`. The first build compiles everything in the VM and takes a good while; later ones reuse its build folder.
+3. **Commands:** `vm.py up|status|build|down`. `down` stops the VM and keeps its disk.
+
+If a build never starts (`windows/out/build.request` stays and no `build.log` appears), the watcher inside the VM is not running: `docker restart -t 150 pampas-windows`, then, in the VM (use the web viewer), run `\\host.lan\Data\out\oem\refresh.cmd` from a command prompt; it reinstalls the watcher.
+
+### macOS
+
+On a Mac, install the Xcode command line tools, Rust (`rustup`), Node and `tauri-cli`, then `./build.sh --target mac` (your Mac's architecture) or `--arch arm64|x64|universal`. The `.dmg` is signed ad hoc (`signingIdentity "-"`), which gives the app a stable identity for the keychain, and the app's `Info.plist` explains why it uses the local network (to reach an Ollama server on your LAN); without that note macOS refuses LAN connections silently. It is not notarized, so the first time you open it, right-click the app and choose Open. This build has not been run on a Mac yet: it follows the process that works for bobcat.
 
 ## Environment variables
 
