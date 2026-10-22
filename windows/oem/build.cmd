@@ -38,6 +38,8 @@ if errorlevel 1 set BUILDRC=1
 if "%BUILDRC%"=="0" (
   cd /d %WORK%\src-tauri
   echo Building the GUI installer >> "%LOG%"
+  rem installers from earlier versions stay in target\ between builds and would be copied out too
+  del /Q %WORK%\target\release\bundle\nsis\*-setup.exe 2>nul
   cargo tauri build --bundles nsis < nul >> "%LOG%" 2>&1
   if errorlevel 1 set BUILDRC=1
 )

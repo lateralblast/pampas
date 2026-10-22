@@ -4,6 +4,12 @@ Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-10-23
+
+### Fixed
+
+- `./build.sh --target windows` (the VM route) and `--target windows --docker` no longer copy installers from earlier versions into `dist/`: the VM and the container keep their build folder between builds, so an old `pampas_<older>_x64-setup.exe` was copied out beside the new one (and in the container route the old one could replace the new one). Each build now clears the old installers first.
+
 ## [0.5.0] - 2026-10-23
 
 ### Added

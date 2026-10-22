@@ -2,7 +2,7 @@
 
 # pampas
 
-Version: 0.5.0
+Version: 0.5.1
 
 **pampas** is short for Parallel AI Multi-provider Prompt Aggregator & Synthesizer: a command-line tool and desktop app that send one prompt to several free AI services in parallel and merge the results.
 

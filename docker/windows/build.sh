@@ -10,6 +10,8 @@ cd /src
 [ -x ui/node_modules/.bin/tsc ] || npm --prefix ui ci
 npm --prefix ui run build
 cd /src/src-tauri
+# the target volume persists, so installers of older versions would be copied out too
+rm -f /src/target/$T/release/bundle/nsis/*-setup.exe
 cargo tauri build --target $T --bundles nsis
 cp /src/target/$T/release/bundle/nsis/*-setup.exe "$out/"
 if [ "${1:-}" != --no-cli ]; then
