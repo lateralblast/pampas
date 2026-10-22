@@ -18,7 +18,7 @@
 # Results are copied to ./dist/ (gitignored).
 # A target can only be built on its own platform (the app links the system web view), except through the VM and Docker routes above.
 # Needs the Rust toolchain, Node (the interface is built with it) and tauri-cli (cargo install tauri-cli --version '^2').
-#   ./build.sh [--target <t>] --release [<version>] [--draft] [--yes] [--dry-run]
+#   ./build.sh [--target <t>] --release [<version>] [--commit <ref>] [--draft] [--yes] [--dry-run]
 #   ./build.sh --delete-release [<version>] [--keep-tag] [--yes] [--dry-run]
 # --release tags the commit v<version> (version from Cargo.toml), pushes the tag and creates the GitHub release with the
 # files in dist/ for that version (needs `gh`, logged in). The release notes are that version's section of CHANGELOG.md.
@@ -27,6 +27,8 @@
 # already in dist/. --draft creates a draft release, --yes skips the question, --dry-run prints what it would do and
 # changes nothing. --release 0.5.3 releases that version instead of the current one: it uses the files in dist/ for it
 # and tags its existing tag, else the newest commit whose Cargo.toml says that version (which must be pushed);
+# --commit <ref> (a commit, branch or tag) says which commit to tag instead: for a version no commit's Cargo.toml says
+# (say it was only ever built from the working tree), with --release <version>. The commit must be pushed.
 # a version other than the current one cannot be combined with --target (build it from a checkout of that commit).
 # --delete-release deletes the GitHub release v<version> (default: the current version) with its uploaded files, and the
 # tag v<version> on GitHub and locally unless --keep-tag is given. It asks first (--yes skips the question). It never
@@ -36,12 +38,12 @@ set -euo pipefail
 
 usage() {
   echo "usage: $0 --target mac|linux|deb|rpm|windows [--arch arm64|x64|universal] [--package deb|rpm|appimage|all] [--docker] [--no-cli]"
-  echo "       $0 [--target <t>] --release [<version>] [--draft] [--yes] [--dry-run]"
+  echo "       $0 [--target <t>] --release [<version>] [--commit <ref>] [--draft] [--yes] [--dry-run]"
   echo "       $0 --delete-release [<version>] [--keep-tag] [--yes] [--dry-run]"
   exit "${1:-1}"
 }
 
-target="" arch="" package="" docker=0 cli=1 delete=0 del_version="" rel_version="" keep_tag=0 release=0 draft=0 yes=0 dry=0
+target="" arch="" package="" docker=0 cli=1 delete=0 del_version="" rel_version="" rel_commit="" keep_tag=0 release=0 draft=0 yes=0 dry=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --target) target="${2:-}"; shift 2 ;;
@@ -57,6 +59,7 @@ while [ $# -gt 0 ]; do
       delete=1; shift
       case "${1:-}" in -*|"") ;; *) del_version="${1#v}"; shift ;;
       esac ;;
+    --commit) rel_commit="${2:-}"; [ -n "$rel_commit" ] || { echo "--commit needs a commit or tag" >&2; exit 1; }; shift 2 ;;
     --keep-tag) keep_tag=1; shift ;;
     --draft) draft=1; shift ;;
     --yes) yes=1; shift ;;
@@ -343,7 +346,10 @@ release_it() {
   cd "$root"
   git fetch -q origin 2>/dev/null || true
   local commit
-  if [ "$version" = "$current" ]; then
+  if [ -n "$rel_commit" ]; then
+    commit=$(git rev-parse -q --verify "$rel_commit^{commit}") || die "$rel_commit is not a commit"
+    [ -n "$(git branch -r --contains "$commit" 2>/dev/null)" ] || problem "commit $(git rev-parse --short "$commit") is not on GitHub: push it first"
+  elif [ "$version" = "$current" ]; then
     commit=$(git rev-parse HEAD)
     [ -z "$(git status --porcelain)" ] || problem "uncommitted changes: commit them first (this script never commits)"
     local upstream

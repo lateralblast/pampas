@@ -2,7 +2,7 @@
 
 # pampas
 
-Version: 0.5.5
+Version: 0.5.6
 
 **pampas** is short for Parallel AI Multi-provider Prompt Aggregator & Synthesizer: a command-line tool and desktop app that send one prompt to several free AI services in parallel and merge the results.
 
@@ -440,7 +440,7 @@ The app icon is `pampas.png` in the repository root (the tiger icon credited und
 
 ## Building installers
 
-`./build.sh` builds the desktop app's installer and, separately, the command line `pampas-cli` as an archive into `dist/` (not committed). It builds the interface first, so it needs [Node](https://nodejs.org) 20 or later, the Rust toolchain and `tauri-cli` (`cargo install tauri-cli --version '^2'`). It never commits. `./build.sh --release` is the one publishing step: it tags `v<version>`, pushes the tag and creates a GitHub release with the files in `dist/` for that version (the release notes are that version's section of `CHANGELOG.md`; needs the [GitHub CLI](https://cli.github.com) `gh`, logged in, and a committed and pushed tree). `--release 0.5.3` releases that version instead of the current one (its tag, else the newest commit with that version in `Cargo.toml`, which must be pushed). Add `--target <t>` to build first (current version only), `--draft` for a draft, `--yes` to skip the question and `--dry-run` to see what would happen; an existing release gets the files added, so each platform can be added from its own machine. `./build.sh --delete-release [<version>] [--keep-tag]` removes a release and its tag. It is adapted from the build process of the author's other Tauri app, bobcat.
+`./build.sh` builds the desktop app's installer and, separately, the command line `pampas-cli` as an archive into `dist/` (not committed). It builds the interface first, so it needs [Node](https://nodejs.org) 20 or later, the Rust toolchain and `tauri-cli` (`cargo install tauri-cli --version '^2'`). It never commits. `./build.sh --release` is the one publishing step: it tags `v<version>`, pushes the tag and creates a GitHub release with the files in `dist/` for that version (the release notes are that version's section of `CHANGELOG.md`; needs the [GitHub CLI](https://cli.github.com) `gh`, logged in, and a committed and pushed tree). `--release 0.5.3 --commit <ref>` tags a commit you name, for a version no commit's `Cargo.toml` says. `--release 0.5.3` releases that version instead of the current one (its tag, else the newest commit with that version in `Cargo.toml`, which must be pushed). Add `--target <t>` to build first (current version only), `--draft` for a draft, `--yes` to skip the question and `--dry-run` to see what would happen; an existing release gets the files added, so each platform can be added from its own machine. `./build.sh --delete-release [<version>] [--keep-tag]` removes a release and its tag. It is adapted from the build process of the author's other Tauri app, bobcat.
 
 | Target | Command | Where it builds | Produces |
 |---|---|---|---|

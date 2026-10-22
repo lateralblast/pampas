@@ -4,6 +4,12 @@ Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.5.6] - 2026-10-23
+
+### Added
+
+- `./build.sh --release <version> --commit <ref>` tags the commit, branch or tag you name for that release, for a version that no commit's `Cargo.toml` says (for example one built only from the working tree, then committed with a later version). The commit must be on GitHub. Example: `./build.sh --release 0.5.3 --commit HEAD`.
+
 ## [0.5.5] - 2026-10-23
 
 ### Added
