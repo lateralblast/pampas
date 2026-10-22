@@ -2,7 +2,7 @@
 
 # pampas
 
-Version: 0.5.2
+Version: 0.5.5
 
 **pampas** is short for Parallel AI Multi-provider Prompt Aggregator & Synthesizer: a command-line tool and desktop app that send one prompt to several free AI services in parallel and merge the results.
 
@@ -440,7 +440,7 @@ The app icon is `pampas.png` in the repository root (the tiger icon credited und
 
 ## Building installers
 
-`./build.sh` builds the desktop app's installer and, separately, the command line `pampas-cli` as an archive into `dist/` (not committed). It builds the interface first, so it needs [Node](https://nodejs.org) 20 or later, the Rust toolchain and `tauri-cli` (`cargo install tauri-cli --version '^2'`). It never commits, tags or publishes anything. It is adapted from the build process of the author's other Tauri app, bobcat.
+`./build.sh` builds the desktop app's installer and, separately, the command line `pampas-cli` as an archive into `dist/` (not committed). It builds the interface first, so it needs [Node](https://nodejs.org) 20 or later, the Rust toolchain and `tauri-cli` (`cargo install tauri-cli --version '^2'`). It never commits. `./build.sh --release` is the one publishing step: it tags `v<version>`, pushes the tag and creates a GitHub release with the files in `dist/` for that version (the release notes are that version's section of `CHANGELOG.md`; needs the [GitHub CLI](https://cli.github.com) `gh`, logged in, and a committed and pushed tree). `--release 0.5.3` releases that version instead of the current one (its tag, else the newest commit with that version in `Cargo.toml`, which must be pushed). Add `--target <t>` to build first (current version only), `--draft` for a draft, `--yes` to skip the question and `--dry-run` to see what would happen; an existing release gets the files added, so each platform can be added from its own machine. `./build.sh --delete-release [<version>] [--keep-tag]` removes a release and its tag. It is adapted from the build process of the author's other Tauri app, bobcat.
 
 | Target | Command | Where it builds | Produces |
 |---|---|---|---|
@@ -472,13 +472,13 @@ If a build never starts (`windows/out/build.request` stays and no `build.log` ap
 | Linux, in a container | `.deb` and command-line archive built in the Ubuntu 24.04 image |
 | Windows, in the VM | installer and `pampas-cli.exe` built with MSVC, three times, including a cold start of the stopped VM that the script started and stopped itself |
 | Windows, cross build | installer and `pampas-cli.exe` built with MinGW in a container |
-| macOS | not run: written from bobcat's process |
+| macOS, Apple silicon | `.dmg` and `pampas-cli` archive built on a Mac (arm64); the ad hoc signature, `Info.plist` and command-line version were inspected; the app has not been opened and run, and `x64` and `universal` are not built |
 
-Not tested yet: running either Windows installer, or the app, on a Windows machine; the macOS build; the AppImage package; the arm64 container build. See `TODO.md`.
+Not tested yet: running either Windows installer, or the app, on a Windows machine; running the macOS app (keychain, local-network prompt, Gatekeeper), the `x64` and `universal` macOS builds; the AppImage package; the arm64 container build. See `TODO.md`.
 
 ### macOS
 
-On a Mac, install the Xcode command line tools, Rust (`rustup`), Node and `tauri-cli`, then `./build.sh --target mac` (your Mac's architecture) or `--arch arm64|x64|universal`. The `.dmg` is signed ad hoc (`signingIdentity "-"`), which gives the app a stable identity for the keychain, and the app's `Info.plist` explains why it uses the local network (to reach an Ollama server on your LAN); without that note macOS refuses LAN connections silently. It is not notarized, so the first time you open it, right-click the app and choose Open. This build has not been run on a Mac yet: it follows the process that works for bobcat.
+On a Mac, install the Xcode command line tools, Rust (`rustup`), Node and `tauri-cli`, then `./build.sh --target mac` (your Mac's architecture) or `--arch arm64|x64|universal`. The `.dmg` is signed ad hoc (`signingIdentity "-"`), which gives the app a stable identity for the keychain, and the app's `Info.plist` explains why it uses the local network (to reach an Ollama server on your LAN); without that note macOS refuses LAN connections silently. It is not notarized, so the first time you open it, right-click the app and choose Open. The arm64 build has been made on a Mac; see "What has been tested" for what has and has not been run.
 
 ## Environment variables
 

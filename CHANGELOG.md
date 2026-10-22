@@ -4,6 +4,26 @@ Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.5.5] - 2026-10-23
+
+### Added
+
+- `./build.sh --release <version>` (for example `--release 0.5.3`) releases a specific version instead of the current one, using the files in `dist/` for it. It tags the version's existing tag, else the newest commit whose `Cargo.toml` says that version, and stops if that commit is not on GitHub or no commit has that version. It cannot be combined with `--target`.
+
+## [0.5.4] - 2026-10-23
+
+### Added
+
+- `./build.sh --release [--target <t>] [--draft] [--yes] [--dry-run]` tags the commit `v<version>`, pushes the tag and creates a GitHub release holding the files in `dist/` for that version, with that version's `CHANGELOG.md` section as the notes (needs `gh`, logged in). If the release exists the files are added to it, so each platform can be built and added from its own machine. It never commits: the tree must be committed and pushed, and it stops otherwise. Without `--target` it releases what is already in `dist/`; `--dry-run` shows what it would do and changes nothing.
+- `./build.sh --delete-release [<version>] [--keep-tag] [--yes] [--dry-run]` deletes that GitHub release and its files, and the tag on GitHub and locally unless `--keep-tag` is given. It asks first. Copied from bobcat's `build.sh`.
+
+## [0.5.3] - 2026-10-23
+
+### Fixed
+
+- `./build.sh --target mac` no longer stops after the installer with "the command-line binary was not found at target/release/pampas": the script defined `build_target` twice, and the second, older copy (still looking for a binary called `pampas`) was the one that ran, so the `pampas-cli-<version>-mac-<arch>.tar.gz` archive was never made. The older copy is removed.
+- The macOS build has now been run on a Mac (Apple silicon): the `.dmg` and the command-line archive build, the app is signed ad hoc with identifier `au.com.lateralblast.pampas`, and `Info.plist` has the local-network note and minimum system version 11.0.
+
 ## [0.5.2] - 2026-10-23
 
 ### Changed
