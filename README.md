@@ -1,3 +1,5 @@
+![Pampas cat](pampas.png)
+
 # pampas
 
 Version: 0.2.6
