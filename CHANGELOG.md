@@ -4,6 +4,16 @@ Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.2.7] - 2026-10-23
+
+### Added
+
+- Ollama support, local and remote, through its OpenAI-compatible endpoint: set `base_url` to `http://localhost:11434/v1` (or `http://HOST:11434/v1`) and `model` to a pulled model. `examples/providers.json` has `ollama` and `ollama-remote` entries, both `enabled: false`; turn one on with `--enable ollama`.
+
+### Changed
+
+- `api_key_env` is now optional. An entry without it sends no `Authorization` header, and `pampas key list` shows `no key needed`. Set it for a remote Ollama behind a proxy that wants a token.
+
 ## [0.2.6] - 2026-10-22
 
 ### Added

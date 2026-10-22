@@ -2,7 +2,7 @@
 
 # pampas
 
-Version: 0.2.6
+Version: 0.2.7
 
 **pampas** is short for Parallel AI Multi-provider Prompt Aggregator & Synthesizer: a CLI that sends one prompt to several free AI services in parallel and merges the results.
 
@@ -15,7 +15,9 @@ Version: 0.2.6
 - [Output formats](#output-formats)
 - [Merging answers](#merging-answers)
 - [Apple Intelligence](#apple-intelligence)
+- [Ollama](#ollama)
 - [API keys](#api-keys)
+- [Environment variables](#environment-variables)
 
 ## Quick start
 
@@ -38,7 +40,7 @@ Providers are listed in `~/.config/pampas/providers.json`, a JSON array. Any ser
 ]
 ```
 
-`chat_path` is optional (default `/chat/completions`): the path appended to `base_url` for chat requests, for services that use a different one, such as Free.ai's `/chat/`. `fallback` is optional: `"free_models"` makes a provider whose `model` fails (an HTTP error such as `429` or `404`; a timeout does not trigger it) list the service's `/models` and try up to 3 free text models in listed order (a model counts as free when its prompt and completion prices are both `0` and its id ends in `:free`; safety classifiers and non-text models are skipped). When a fallback model answers, a notice naming it goes to stderr. The whole attempt, fallbacks included, shares the `--timeout`, so raise it (for example `--timeout 60`) for providers with a fallback. It needs a service that lists pricing in `/models`, as OpenRouter does, and the example `openrouter` entry uses it. `synthesizer` is optional (default `false`): with `--merge`, the first running entry marked `true` writes the consolidated answer (see [Merging answers](#merging-answers)). `daily_limit` is optional: the most requests to make per UTC day, after which the provider is skipped (see [Usage limits](#usage-limits)). `usage_group` is optional: the name requests are counted under, default the entry's own name; entries that share one account's quota should share a group. `enabled` is optional (default `true`): `false` leaves the provider out of runs unless `--enable <name>` is given; it works on `apple_fm` entries too. `api_key_env` names the key: see [API keys](#api-keys). A provider with no key is skipped with a warning. Each provider's answer is printed under a `## name` heading; failures go to stderr.
+`chat_path` is optional (default `/chat/completions`): the path appended to `base_url` for chat requests, for services that use a different one, such as Free.ai's `/chat/`. `fallback` is optional: `"free_models"` makes a provider whose `model` fails (an HTTP error such as `429` or `404`; a timeout does not trigger it) list the service's `/models` and try up to 3 free text models in listed order (a model counts as free when its prompt and completion prices are both `0` and its id ends in `:free`; safety classifiers and non-text models are skipped). When a fallback model answers, a notice naming it goes to stderr. The whole attempt, fallbacks included, shares the `--timeout`, so raise it (for example `--timeout 60`) for providers with a fallback. It needs a service that lists pricing in `/models`, as OpenRouter does, and the example `openrouter` entry uses it. `synthesizer` is optional (default `false`): with `--merge`, the first running entry marked `true` writes the consolidated answer (see [Merging answers](#merging-answers)). `daily_limit` is optional: the most requests to make per UTC day, after which the provider is skipped (see [Usage limits](#usage-limits)). `usage_group` is optional: the name requests are counted under, default the entry's own name; entries that share one account's quota should share a group. `enabled` is optional (default `true`): `false` leaves the provider out of runs unless `--enable <name>` is given; it works on `apple_fm` entries too. `api_key_env` names the key: see [API keys](#api-keys); leave it out for a service that needs no key, such as Ollama (see [Ollama](#ollama)). A provider with no key is skipped with a warning. Each provider's answer is printed under a `## name` heading; failures go to stderr.
 
 ## Providers
 
@@ -160,6 +162,16 @@ Then add an entry with `"kind": "apple_fm"` (the example config has one):
 
 `command` is optional (default `pampas-apple-fm`, looked up on `PATH`; a value with a slash is used as a path). Entries without `kind` are OpenAI-compatible as before. At startup `pampas` runs `pampas-apple-fm --check`; if the helper is missing or the model is unavailable (Apple Intelligence off, unsupported Mac, model still downloading), the entry is skipped with a warning and the other providers still run, so the same config works on any machine. `pampas key list` shows `no key needed` for these entries.
 
+## Ollama
+
+Ollama serves an OpenAI-compatible API, so it needs only a config entry, no key:
+
+```json
+{ "name": "ollama", "base_url": "http://localhost:11434/v1", "model": "qwen2.5:7b" }
+```
+
+For a remote server use its address, e.g. `http://YOUR_OLLAMA_HOST:11434/v1` (start it with `OLLAMA_HOST=0.0.0.0` so it listens beyond localhost). If a reverse proxy in front of it wants a bearer token, add `api_key_env`. `model` must already be pulled (`ollama pull <model>`). Local models can be slow to load on the first request, so raise `--timeout` if one times out. Requests are counted like any other entry, but with no `daily_limit` nothing is ever skipped. Tested against a local Ollama and a remote one on the LAN.
+
 ## API keys
 
 Each provider's `api_key_env` is the name of its key. pampas looks for the key in this order:
@@ -174,6 +186,23 @@ Keys never go in the providers config file.
 - `pampas key list [--config <path>]`: one tab-separated line per configured provider: name, key name, and where its key comes from (`environment variable`, `OS keychain`, or `missing`). Keys themselves are never printed.
 
 On a machine with no Secret Service (a headless Linux server, a container, CI), the keychain is unavailable: use environment variables there. A missing keychain only matters for providers whose environment variable is unset.
+
+## Environment variables
+
+| Variable | Used for | Description |
+|---|---|---|
+| `GROQ_API_KEY` | Groq | API key for the `groq` entries. |
+| `OPENROUTER_API_KEY` | OpenRouter | API key for the `openrouter` entry. |
+| `FREEAI_API_KEY` | Free.ai | API key for the `freeai` entry. |
+| `NVIDIA_API_KEY` | NVIDIA | API key for the `nvidia-*` entries. |
+| `CLOUDFLARE_API_KEY` | Cloudflare Workers AI | API token for the `cloudflare-*` entries. |
+| `COHERE_API_KEY` | Cohere | Trial API key for the `cohere*` entries. |
+| `GEMINI_API_KEY` | Google Gemini | API key for the `gemini*` entries. |
+| `XDG_CONFIG_HOME` | pampas | Base directory of the default providers config, `$XDG_CONFIG_HOME/pampas/providers.json`; default `~/.config`. |
+| `XDG_STATE_HOME` | pampas | Base directory of the default usage file, `$XDG_STATE_HOME/pampas/usage.json`; default `~/.local/state`. |
+| `HOME` | pampas | Used to build the two default paths above when the `XDG_*` variables are unset. |
+
+The seven `*_API_KEY` names are the `api_key_env` values in `examples/providers.json`; the name is whatever your config says, so a provider you add yourself can use any variable. Each is looked up in the environment first, then the OS keychain (see [API keys](#api-keys)). Ollama and Apple Intelligence entries need none. `OLLAMA_HOST` is read by the Ollama server, not by pampas.
 
 ## Attribution
 

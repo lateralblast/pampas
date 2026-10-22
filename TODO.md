@@ -18,6 +18,7 @@ Status: `[ ]` open, `[~]` in progress, `[x]` done.
 
 ## Done
 
+- [x] Ollama support, local and remote, via the OpenAI-compatible endpoint and an optional `api_key_env`; tested against a local and a remote server.
 - [x] Example config entries for Gemini (`gemini-flash-latest`, `gemini-flash-lite-latest`) with a key from a new AI Studio project, tested against the real API; the earlier `403` was the old key's project. Cerebras was dropped (its no-card free tier ended).
 - [x] Example config entries for Cohere's trial key (Command A Plus, Command R Plus), tested against the real API.
 - [x] Example config entries for Cloudflare Workers AI (`gpt-oss-120b`, Llama 3.3 70B, Gemma 4 26B), tested against the real API.

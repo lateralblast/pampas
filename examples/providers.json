@@ -103,6 +103,18 @@
     "usage_group": "gemini"
   },
   {
+    "name": "ollama",
+    "base_url": "http://localhost:11434/v1",
+    "model": "qwen2.5:7b",
+    "enabled": false
+  },
+  {
+    "name": "ollama-remote",
+    "base_url": "http://YOUR_OLLAMA_HOST:11434/v1",
+    "model": "gemma4:12b",
+    "enabled": false
+  },
+  {
     "name": "apple",
     "kind": "apple_fm"
   }

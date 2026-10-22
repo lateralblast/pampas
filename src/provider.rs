@@ -21,7 +21,9 @@ pub struct ProviderConfig {
     pub base_url: String,
     pub model: String,
     /// Name of the environment variable holding the API key; also the name its keychain entry is stored under.
-    pub api_key_env: String,
+    /// Leave it out for a service that needs no key, such as a local or LAN Ollama server.
+    #[serde(default)]
+    pub api_key_env: Option<String>,
     /// Path appended to `base_url` for chat requests; defaults to `/chat/completions`.
     #[serde(default = "default_chat_path")]
     pub chat_path: String,
@@ -82,7 +84,7 @@ impl ProviderConfig {
 /// Any service that speaks the OpenAI `/chat/completions` API.
 pub struct OpenAiCompatible {
     config: ProviderConfig,
-    api_key: String,
+    api_key: Option<String>,
     client: reqwest::Client,
     usage: SharedUsage,
     /// Refuse requests once `daily_limit` is used up (false with `--ignore-limits`).
@@ -92,12 +94,20 @@ pub struct OpenAiCompatible {
 impl OpenAiCompatible {
     pub fn new(
         config: ProviderConfig,
-        api_key: String,
+        api_key: Option<String>,
         client: reqwest::Client,
         usage: SharedUsage,
         enforce_limits: bool,
     ) -> Self {
         Self { config, api_key, client, usage, enforce_limits }
+    }
+
+    /// Add the bearer token, if this provider has a key.
+    fn authed(&self, req: reqwest::RequestBuilder) -> reqwest::RequestBuilder {
+        match &self.api_key {
+            Some(key) => req.bearer_auth(key),
+            None => req,
+        }
     }
 
     /// Ask one specific model. The request is counted before it is sent, so a failed one still
@@ -114,7 +124,7 @@ impl OpenAiCompatible {
             "model": model,
             "messages": [{"role": "user", "content": prompt}],
         });
-        let resp = self.client.post(self.config.chat_url()).bearer_auth(&self.api_key).json(&body).send().await?;
+        let resp = self.authed(self.client.post(self.config.chat_url())).json(&body).send().await?;
         let status = resp.status();
         let text = resp.text().await?;
         if !status.is_success() {
@@ -125,7 +135,7 @@ impl OpenAiCompatible {
 
     /// Free text models the service lists, other than `exclude`.
     async fn free_models(&self, exclude: &str) -> anyhow::Result<Vec<String>> {
-        let resp = self.client.get(self.config.models_url()).bearer_auth(&self.api_key).send().await?;
+        let resp = self.authed(self.client.get(self.config.models_url())).send().await?;
         let status = resp.status();
         let text = resp.text().await?;
         if !status.is_success() {
@@ -381,6 +391,13 @@ mod tests {
     #[test]
     fn empty_choices_is_an_error() {
         assert!(parse_reply(r#"{"choices":[]}"#).is_err());
+    }
+
+    #[test]
+    fn api_key_env_is_optional() {
+        let cfg = r#"[{"name":"ollama","base_url":"http://localhost:11434/v1","model":"m"}]"#;
+        let parsed = parse_config(cfg).unwrap();
+        assert_eq!(parsed[0].name(), "ollama");
     }
 
     #[test]

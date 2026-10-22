@@ -136,14 +136,14 @@ fn load_config(path: &Path) -> anyhow::Result<Vec<ProviderEntry>> {
     parse_config(&text)
 }
 
-/// The provider's key: its environment variable, else the keychain.
-fn find_key(cfg: &ProviderConfig, store: &dyn KeyStore) -> anyhow::Result<(String, Source)> {
-    let env = std::env::var(&cfg.api_key_env).ok();
-    resolve(&cfg.api_key_env, env, store)
-        .with_context(|| format!("{}: looking up {}", cfg.name, cfg.api_key_env))?
-        .with_context(|| {
-            format!("{}: no key: set {} or run `pampas key set {}`", cfg.name, cfg.api_key_env, cfg.api_key_env)
-        })
+/// The provider's key: its environment variable, else the keychain. `None` when the entry names no key.
+fn find_key(cfg: &ProviderConfig, store: &dyn KeyStore) -> anyhow::Result<Option<(String, Source)>> {
+    let Some(name) = &cfg.api_key_env else { return Ok(None) };
+    let env = std::env::var(name).ok();
+    resolve(name, env, store)
+        .with_context(|| format!("{}: looking up {name}", cfg.name))?
+        .with_context(|| format!("{}: no key: set {name} or run `pampas key set {name}`", cfg.name))
+        .map(Some)
 }
 
 /// Print `name  group  used/limit` for each provider that makes counted requests.
@@ -196,11 +196,12 @@ fn run_key(action: KeyAction, config: Option<PathBuf>) -> anyhow::Result<()> {
                 match entry {
                     ProviderEntry::OpenAi(cfg) => {
                         let status = match find_key(&cfg, &Keychain) {
-                            Ok((_, Source::Env)) => "environment variable".to_string(),
-                            Ok((_, Source::Keychain)) => "OS keychain".to_string(),
+                            Ok(None) => "no key needed".to_string(),
+                            Ok(Some((_, Source::Env))) => "environment variable".to_string(),
+                            Ok(Some((_, Source::Keychain))) => "OS keychain".to_string(),
                             Err(e) => format!("missing ({e:#})"),
                         };
-                        println!("{}\t{}\t{}", cfg.name, cfg.api_key_env, status);
+                        println!("{}\t{}\t{}", cfg.name, cfg.api_key_env.as_deref().unwrap_or("-"), status);
                     }
                     ProviderEntry::AppleFm(cfg) => println!("{}\t-\tno key needed", cfg.name),
                 }
@@ -242,7 +243,8 @@ async fn main() -> anyhow::Result<()> {
         }
         match entry {
             ProviderEntry::OpenAi(cfg) => match find_key(&cfg, &Keychain) {
-                Ok((key, _)) => {
+                Ok(found) => {
+                    let key = found.map(|(key, _)| key);
                     let used = usage.lock().expect("usage lock").used(cfg.usage_group());
                     match cfg.daily_limit {
                         Some(limit) if used >= limit && !cli.ignore_limits => eprintln!(
