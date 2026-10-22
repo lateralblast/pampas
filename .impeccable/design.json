@@ -1,0 +1,129 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-22T07:00:00Z",
+  "title": "Design System: pampas",
+  "extensions": {
+    "colorMeta": {
+      "ink-blue": { "role": "primary", "displayName": "Ink Blue", "canonical": "#1d4ed8", "tonalRamp": ["#0b1d5c", "#12308f", "#1d4ed8", "#4a72e6", "#8fb0ff", "#b9ceff", "#e8eefc", "#f5f8ff"] },
+      "reading-wash": { "role": "primary", "displayName": "Reading Wash", "canonical": "#e8eefc", "tonalRamp": ["#1c2842", "#2c3f6b", "#5a74b5", "#8fa6dc", "#bccbee", "#d4def5", "#e8eefc", "#f5f8ff"] },
+      "ground": { "role": "neutral", "displayName": "Cool Ground", "canonical": "#f4f5f7", "tonalRamp": ["#121519", "#1a1e24", "#444c58", "#5b6471", "#b4bbc6", "#dadee4", "#f4f5f7", "#ffffff"] },
+      "ok": { "role": "status", "displayName": "Answered Green", "canonical": "#17683f", "tonalRamp": ["#0c3a23", "#17683f", "#2d8d5e", "#74d3a3", "#a3e2c1", "#c5eddb", "#e4f3eb", "#f2faf6"] },
+      "warn": { "role": "status", "displayName": "Pending Amber", "canonical": "#7a4f00", "tonalRamp": ["#33280f", "#5a3a00", "#7a4f00", "#b07a14", "#e6b86a", "#f2d49f", "#fbf1dc", "#fdf8ec"] },
+      "bad": { "role": "status", "displayName": "Failure Red", "canonical": "#a8261d", "tonalRamp": ["#3a1c1a", "#6e150f", "#a8261d", "#d4584e", "#ff9d93", "#ffc2bb", "#fbe9e7", "#fdf4f3"] }
+    },
+    "typographyMeta": {
+      "question": { "displayName": "Question", "purpose": "The asked question above an edition, serif, indented to the reading column." },
+      "answer": { "displayName": "Answer", "purpose": "Reading and witness text and the prompt box." },
+      "label": { "displayName": "Label", "purpose": "Uppercase tracked row, section and table-head labels." },
+      "siglum": { "displayName": "Siglum", "purpose": "Boxed italic letter naming a source." }
+    },
+    "shadows": [],
+    "motion": [
+      { "name": "settle", "value": "0.3s cubic-bezier(.16, 1, .3, 1)", "purpose": "A witness row body arrives with a 4px rise from 35% opacity." },
+      { "name": "chevron", "value": "0.15s ease-out", "purpose": "Disclosure chevron rotation." },
+      { "name": "pending-dots", "value": "1.2s ease-in-out infinite", "purpose": "Pulsing ellipsis while waiting. All motion off under prefers-reduced-motion." }
+    ],
+    "breakpoints": [
+      { "name": "narrow", "value": "860px" },
+      { "name": "compact", "value": "560px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Siglum",
+      "kind": "custom",
+      "refersTo": "siglum",
+      "description": "Boxed italic letter naming a source; a button inside the reading that jumps to that witness.",
+      "html": "<button class=\"ds-sig\">a</button> <button class=\"ds-sig ds-sig-hover\">b</button>",
+      "css": ".ds-sig { appearance: none; display: inline-grid; place-items: center; min-width: 1.45em; height: 1.45em; padding: 0 .3em; border: 1px solid currentColor; border-radius: 2px; background: none; color: var(--accent, #1d4ed8); font: italic 600 1.05rem/1 ui-serif, Georgia, serif; cursor: pointer; } .ds-sig:hover, .ds-sig-hover { background: var(--accent, #1d4ed8); color: var(--accent-ink, #fff); } .ds-sig:focus-visible { outline: 2px solid var(--accent, #1d4ed8); outline-offset: 2px; }"
+    },
+    {
+      "name": "Reading Row",
+      "kind": "card",
+      "refersTo": "reading-row",
+      "description": "The merged reading: gutter label and name beside serif text on the reading wash.",
+      "html": "<div class=\"ds-row\"><div><div class=\"ds-label\">Reading</div><div class=\"ds-meta\">merged by groq-120b</div></div><p class=\"ds-text\">Both sources agree on a read-through cache with a short TTL.</p></div>",
+      "css": ".ds-row { display: grid; grid-template-columns: 11.5rem minmax(0, 72ch); column-gap: 2rem; padding: 1.1rem .85rem; background: var(--accent-wash, #e8eefc); border-radius: 4px; } .ds-label { font: 650 .875rem/1.25 system-ui, sans-serif; letter-spacing: .06em; text-transform: uppercase; color: var(--accent, #1d4ed8); } .ds-meta { color: var(--ink-3, #5b6471); font-size: .875rem; } .ds-text { margin: 0; font: 1.0625rem/1.6 ui-serif, Georgia, serif; color: var(--ink, #1a1e24); }"
+    },
+    {
+      "name": "Witness Row with State Mark",
+      "kind": "custom",
+      "refersTo": "reading-row",
+      "description": "A witness: siglum, name, model id and state in the gutter, answer text beside, hairline above.",
+      "html": "<div class=\"ds-w\"><div><span class=\"ds-s\">a</span><div class=\"ds-n\">groq</div><div class=\"ds-m\">openai/gpt-oss-20b</div><div class=\"ds-ok\">&#10003; Answered in 0.2 s</div></div><p class=\"ds-t\">A read-through cache with a short TTL is the safest start.</p></div>",
+      "css": ".ds-w { display: grid; grid-template-columns: 11.5rem minmax(0, 72ch); column-gap: 2rem; padding: 1.1rem 0; border-top: 1px solid var(--rule, #dadee4); } .ds-s { display: inline-grid; place-items: center; min-width: 1.45em; height: 1.45em; border: 1px solid currentColor; border-radius: 2px; color: var(--accent, #1d4ed8); font: italic 600 1.05rem/1 ui-serif, Georgia, serif; } .ds-n { font-weight: 650; margin-top: .2rem; } .ds-m { color: var(--ink-3, #5b6471); font-size: .875rem; } .ds-ok { color: var(--ok, #17683f); font-size: .875rem; margin-top: .35rem; } .ds-t { margin: 0; font: 1.0625rem/1.6 ui-serif, Georgia, serif; }"
+    },
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The Ask action and other committing actions.",
+      "html": "<button class=\"ds-btn ds-btn-primary\">Ask</button>",
+      "css": ".ds-btn { display: inline-flex; align-items: center; justify-content: center; gap: .4rem; min-height: 2rem; padding: .3rem .8rem; background: var(--surface, #fff); border: 1px solid var(--rule-strong, #b4bbc6); border-radius: 4px; font: inherit; color: var(--ink, #1a1e24); cursor: pointer; } .ds-btn:hover { background: var(--accent-wash, #e8eefc); border-color: var(--accent, #1d4ed8); } .ds-btn-primary { min-width: 6.5rem; min-height: 2.4rem; background: var(--accent, #1d4ed8); color: var(--accent-ink, #fff); border-color: var(--accent, #1d4ed8); font-weight: 600; } .ds-btn-primary:hover { background: var(--accent, #1d4ed8); filter: brightness(1.08); } .ds-btn:focus-visible { outline: 2px solid var(--accent, #1d4ed8); outline-offset: 2px; }"
+    },
+    {
+      "name": "Default and Quiet Buttons",
+      "kind": "button",
+      "refersTo": "button",
+      "description": "Default bordered button and borderless quiet variant for secondary actions such as Copy.",
+      "html": "<button class=\"ds-btn\">Read the full answer</button> <button class=\"ds-btn ds-btn-quiet\">Copy</button>",
+      "css": ".ds-btn { display: inline-flex; align-items: center; gap: .4rem; min-height: 2rem; padding: .3rem .8rem; background: var(--surface, #fff); border: 1px solid var(--rule-strong, #b4bbc6); border-radius: 4px; font: inherit; color: var(--ink, #1a1e24); cursor: pointer; } .ds-btn:hover { background: var(--accent-wash, #e8eefc); border-color: var(--accent, #1d4ed8); } .ds-btn-quiet { border-color: transparent; background: none; color: var(--ink-2, #444c58); } .ds-btn-quiet:hover { border-color: transparent; color: var(--ink, #1a1e24); }"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Text input with a bold label above.",
+      "html": "<div class=\"ds-field\"><label for=\"ds-i\">Model</label><input id=\"ds-i\" type=\"text\" placeholder=\"gemini-flash-latest\"></div>",
+      "css": ".ds-field label { display: block; font-weight: 600; margin-bottom: .25rem; } .ds-field input { width: 100%; min-height: 2.1rem; padding: .4rem .6rem; background: var(--surface, #fff); border: 1px solid var(--rule-strong, #b4bbc6); border-radius: 4px; font: inherit; color: var(--ink, #1a1e24); } .ds-field input::placeholder { color: var(--ink-3, #5b6471); } .ds-field input:focus-visible { outline: 2px solid var(--accent, #1d4ed8); outline-offset: 2px; }"
+    },
+    {
+      "name": "Save Bar",
+      "kind": "custom",
+      "refersTo": "save-bar",
+      "description": "Sticky unsaved-changes bar on the amber wash.",
+      "html": "<div class=\"ds-bar\"><p>You have unsaved changes.</p><div><button class=\"ds-b\">Discard</button> <button class=\"ds-b ds-bp\">Save</button></div></div>",
+      "css": ".ds-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem 1rem; padding: .6rem .9rem; background: var(--warn-wash, #fbf1dc); border: 1px solid var(--warn, #7a4f00); border-radius: 4px; } .ds-bar p { margin: 0; } .ds-b { min-height: 2rem; padding: .3rem .8rem; background: var(--surface, #fff); border: 1px solid var(--rule-strong, #b4bbc6); border-radius: 4px; font: inherit; color: var(--ink, #1a1e24); } .ds-bp { background: var(--accent, #1d4ed8); color: var(--accent-ink, #fff); border-color: var(--accent, #1d4ed8); font-weight: 600; }"
+    },
+    {
+      "name": "Markdown Prose Block",
+      "kind": "custom",
+      "refersTo": "answer",
+      "description": "Rendered answer text: serif body, sans small headings, hairline-bordered table and code.",
+      "html": "<div class=\"ds-prose\"><h4>Caching</h4><p>Start with a <code>read-through</code> cache.</p><ul><li>Keep the TTL short.</li></ul></div>",
+      "css": ".ds-prose { font: 1.0625rem/1.6 ui-serif, Georgia, serif; color: var(--ink, #1a1e24); } .ds-prose h4 { font: 650 .9375rem/1.3 system-ui, sans-serif; margin: 0 0 .4em; } .ds-prose p { margin: 0 0 .85em; } .ds-prose ul { margin: 0; padding-left: 1.5em; } .ds-prose code { font: .86em ui-monospace, Menlo, monospace; background: var(--bg, #f4f5f7); border: 1px solid var(--rule, #dadee4); padding: .05em .3em; border-radius: 3px; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Apparatus",
+    "overview": "pampas presents answers as a critical edition. The merged answer is the established reading, each AI service is a witness tagged with a boxed italic siglum (a, b, c), and services that did not answer are listed plainly under Not heard. It is a quiet, left-aligned reading document, not a chat thread and not a grid of equal cards. Chrome is system sans; answers and questions are system serif; the only decoration is hairline rules and the boxed letter.\n\nThe ground is a cool neutral that follows the OS light or dark theme. One ink-blue accent carries actions, selection, focus, links and sigla. Depth is flat: no shadows anywhere, no nested cards, structure comes from rules, one tinted wash, and a fixed two-column grid. State is always carried by an icon and a word as well as colour.",
+    "keyCharacteristics": [
+      "Two-column rows: an 11.5rem gutter (siglum, name, model, state) and a 72ch reading column.",
+      "One tinted block per edition: the reading wash.",
+      "Hairline 1px rules between rows; no shadows; 4px corners, 2px on the siglum.",
+      "System font stacks only: serif for what is read, sans for chrome, mono for model ids and keys.",
+      "Light and dark themes via `prefers-color-scheme`, same roles, lifted accent in dark."
+    ],
+    "rules": [
+      { "name": "The One Blue Rule", "body": "Ink blue is the only chromatic accent. Status hues appear only on state text, state icons and their washes.", "section": "colors" },
+      { "name": "The Words Beside Colour Rule", "body": "Every status colour is paired with an icon and a plain word (Answered in 0.2 s, Left out, Did not answer). Never colour alone.", "section": "colors" },
+      { "name": "The Serif Is For Reading Rule", "body": "Serif is used for the question, answers, prompt box and history questions; sans for anything that acts or reports.", "section": "typography" },
+      { "name": "The Flat Rule", "body": "No box-shadow, no card inside a card. If something needs to stand apart, use a hairline or the surface step.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do keep every witness, key and not-heard row on the 11.5rem gutter and 72ch body grid.",
+      "Do use the siglum for naming a source anywhere text refers to it, and keep its letter stable by config order.",
+      "Do pair every status colour with an icon and words.",
+      "Do use `var(--...)` tokens for both themes; give each new colour a light and a dark value.",
+      "Do use system font stacks, serif for reading, sans for chrome, mono for ids and keys.",
+      "Do keep depth to hairlines, the surface step and the single reading wash."
+    ],
+    "donts": [
+      "Don't use shadows, nested cards or a chat-bubble thread.",
+      "Don't add a second accent hue or use ink blue for decoration beyond actions, selection, focus, links, sigla and the meter.",
+      "Don't hide a provider that failed; give it a Not heard row with a plain-sentence fix.",
+      "Don't rely on colour alone to show state.",
+      "Don't add new uppercase tracked labels above headings; the existing row labels mark edition parts and are not a pattern to extend."
+    ]
+  }
+}
