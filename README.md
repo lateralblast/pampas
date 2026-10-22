@@ -1,1 +1,178 @@
 # pampas
+
+Version: 0.2.6
+
+**pampas** is short for Parallel AI Multi-provider Prompt Aggregator & Synthesizer: a CLI that sends one prompt to several free AI services in parallel and merges the results.
+
+## Contents
+
+- [Quick start](#quick-start)
+- [Providers](#providers)
+- [Flags](#flags)
+- [Usage limits](#usage-limits)
+- [Output formats](#output-formats)
+- [Merging answers](#merging-answers)
+- [Apple Intelligence](#apple-intelligence)
+- [API keys](#api-keys)
+
+## Quick start
+
+```
+cargo run -- "your prompt"
+```
+
+Ready-to-copy entries for every working free service are in `examples/providers.json`: copy it to `~/.config/pampas/providers.json`, get a key for each service you want (see [Providers](#providers)) and provide it through its environment variable or `pampas key set` (see [API keys](#api-keys)). A provider with no key is skipped with a warning, so you can start with one.
+
+Providers are listed in `~/.config/pampas/providers.json`, a JSON array. Any service with an OpenAI-compatible `/chat/completions` API works:
+
+```json
+[
+  {
+    "name": "groq",
+    "base_url": "https://api.groq.com/openai/v1",
+    "model": "<model id>",
+    "api_key_env": "GROQ_API_KEY"
+  }
+]
+```
+
+`chat_path` is optional (default `/chat/completions`): the path appended to `base_url` for chat requests, for services that use a different one, such as Free.ai's `/chat/`. `fallback` is optional: `"free_models"` makes a provider whose `model` fails (an HTTP error such as `429` or `404`; a timeout does not trigger it) list the service's `/models` and try up to 3 free text models in listed order (a model counts as free when its prompt and completion prices are both `0` and its id ends in `:free`; safety classifiers and non-text models are skipped). When a fallback model answers, a notice naming it goes to stderr. The whole attempt, fallbacks included, shares the `--timeout`, so raise it (for example `--timeout 60`) for providers with a fallback. It needs a service that lists pricing in `/models`, as OpenRouter does, and the example `openrouter` entry uses it. `synthesizer` is optional (default `false`): with `--merge`, the first running entry marked `true` writes the consolidated answer (see [Merging answers](#merging-answers)). `daily_limit` is optional: the most requests to make per UTC day, after which the provider is skipped (see [Usage limits](#usage-limits)). `usage_group` is optional: the name requests are counted under, default the entry's own name; entries that share one account's quota should share a group. `enabled` is optional (default `true`): `false` leaves the provider out of runs unless `--enable <name>` is given; it works on `apple_fm` entries too. `api_key_env` names the key: see [API keys](#api-keys). A provider with no key is skipped with a warning. Each provider's answer is printed under a `## name` heading; failures go to stderr.
+
+## Providers
+
+Status as found while testing on 2026-10-22, each model with a real key. Free tiers change often: where a limit is marked "unconfirmed" it comes from a third-party listing or memory, not from the service, so check the service's own page before relying on it.
+
+### Working free services
+
+| Service | Entries in `examples/providers.json` | Models tested and working | Free-tier limits | Notes |
+|---|---|---|---|---|
+| **Groq** | `groq`, `groq-120b` | `openai/gpt-oss-20b`, `openai/gpt-oss-120b` | Not confirmed; they vary by model (a third-party list said 30 requests a minute, 14,400 a day, unverified). No `daily_limit` set. | Fast. The two entries share a `groq` usage group. The nearest free route to OpenAI models. |
+| **OpenRouter** | `openrouter` | `minimax/minimax-m3.1-flash:free` | 50 requests a day and 20 a minute on `:free` models without credit (OpenRouter's own figure); `daily_limit` is 50. | The set of free models changes: of 18 listed free models, 11 answered, `google/gemma-4-31b-it:free` returned `429` (rate-limited upstream), `openai/gpt-oss-120b:free` was removed (`404`), and two returned `403`. The entry has `"fallback": "free_models"`, which tries other free models when its own fails. |
+| **Free.ai** | `freeai` | `qwen7b` | 30,000 tokens a day and 1,000 API requests a month; `daily_limit` is 30 (about the monthly cap). | Chat endpoint is `/chat/` (`chat_path`). Once returned `503` "chat queue is currently full". |
+| **NVIDIA** | `nvidia-deepseek`, `nvidia-glm`, `nvidia-nemotron` | `deepseek-ai/deepseek-v4.1-flash`, `z-ai/glm-5.3-flash`, `nvidia/nemotron-3-ultra-550b-a55b` | About 40 requests a minute reported (unconfirmed), meant for development; no `daily_limit`. | 83 models listed. `openai/gpt-oss-20b` and `google/gemma-4-31b-it` timed out after 90 s, `moonshotai/kimi-k2.6` returned `404` for the account. Entries share an `nvidia` group. |
+| **Cloudflare Workers AI** | `cloudflare-gpt-oss`, `cloudflare-llama`, `cloudflare-gemma` | `@cf/openai/gpt-oss-120b`, `@cf/meta/llama-3.3-70b-instruct-fp8-fast`, `@cf/google/gemma-4-26b-a4b-it` | 10,000 "Neurons" a day (reported, unconfirmed), which `pampas` cannot count; no `daily_limit`. | Replace `YOUR_ACCOUNT_ID` in each `base_url`. `@cf/zai-org/glm-5.3-flash` returns `403`: not on the free plan. Entries share a `cloudflare` group. |
+| **Cohere** (trial key) | `cohere`, `cohere-r-plus` | `command-a-plus-05-2026`, `command-r-plus-08-2024` (also `command-a-03-2025`, `command-r7b-12-2024`) | About 1,000 calls a month (recalled, unconfirmed), non-commercial use only; `daily_limit` is 30. | OpenAI-compatible endpoint `https://api.cohere.ai/compatibility/v1`. Entries share a `cohere` group. |
+| **Google Gemini** | `gemini`, `gemini-lite` | `gemini-flash-latest`, `gemini-flash-lite-latest` | Not confirmed; AI Studio shows them per model. No `daily_limit` set. | The `-latest` aliases keep working as models change; `gemini-2.5-flash` returned `404` (retired for new keys) and `gemma-4-31b-it` a `500`. The key must come from a new AI Studio project, or it can return `403 PERMISSION_DENIED`. Google may use free-tier prompts to improve its products. Entries share a `gemini` group. |
+| **Apple Intelligence** | `apple` | Apple's on-device model | Local and unlimited; not counted. | Needs macOS 26 or later on Apple silicon with Apple Intelligence on, and the Swift helper (see [Apple Intelligence](#apple-intelligence)). Skipped if unavailable. |
+
+### Getting API keys
+
+Store each key with `pampas key set <ENV VAR>` (typed at a hidden prompt) or export it; see [API keys](#api-keys).
+
+| Service | Environment variable | Where to get it |
+|---|---|---|
+| Groq | `GROQ_API_KEY` | https://console.groq.com/keys: sign in, **Create API Key**. |
+| OpenRouter | `OPENROUTER_API_KEY` | https://openrouter.ai/settings/keys: sign in, **Create Key**. No card needed for `:free` models. |
+| Free.ai | `FREEAI_API_KEY` | Sign up at https://free.ai and create a key in your account (the exact page was not recorded; keys start `sk-free-`). |
+| NVIDIA | `NVIDIA_API_KEY` | https://build.nvidia.com: sign in with an email, open any model and choose **Get API Key** (keys start `nvapi-`). |
+| Cloudflare | `CLOUDFLARE_API_KEY` | https://dash.cloudflare.com/profile/api-tokens: **Create Token** with the **Workers AI** permission. Also copy your account id (the 32-character id in the dashboard URL, or on the Workers & Pages overview) into the entries' `base_url`. |
+| Cohere | `COHERE_API_KEY` | https://dashboard.cohere.com/api-keys: the default **Trial** key is enough. |
+| Google Gemini | `GEMINI_API_KEY` | https://aistudio.google.com/apikey: **Create API key**, choosing **Create API key in new project**. Do not enable billing on the project. |
+| Apple Intelligence | none | No key; build the helper as described below. |
+
+### Tried and not usable for free
+
+| Service | Why not |
+|---|---|
+| **OpenAI API** | No free tier. ChatGPT's free tier is the web app only, with no API; scraping it breaks OpenAI's terms and is fragile. Open-weight `gpt-oss` models are available free through Groq, NVIDIA (`gpt-oss-20b`, slow) and Cloudflare instead. |
+| **xAI (Grok)** | No free tier. |
+| **Mistral** | No free tier. |
+| **DeepSeek API** | Pay-as-you-go; third-party sources mention a one-off trial credit that expires, unconfirmed. DeepSeek V4.1 Flash is free through NVIDIA (`nvidia-deepseek`). |
+| **Cerebras** | The no-card free tier ended; new accounts get a $5 trial credit that expires after 30 days and needs a payment method (reported). |
+| **SambaNova** | A key with a zero balance returned `402 PAYMENT_METHOD_REQUIRED` for every model; a payment method is required. |
+| **Hugging Face Inference Providers** | A free account had no credits (`402`, "subscribe to PRO to get monthly included credits"). |
+| **GitHub Models** | One source says it was retired on 30 July 2026; not verified here. |
+
+## Flags
+
+- `<prompt>`: the prompt sent to every provider.
+- `--timeout <secs>`: per-provider timeout in seconds (default 30).
+- `--enable <name>`: run a provider whose config entry has `"enabled": false`. Repeatable, or comma-separated (`--enable a,b`).
+- `--disable <name>`: leave a provider out of this run. Repeatable, or comma-separated. A name that matches no configured provider, or is both enabled and disabled, is an error.
+- `--merge`: consolidate the answers into one, see [Merging answers](#merging-answers).
+- `--synthesizer <name>`: with `--merge`, the provider that writes the consolidated answer.
+- `--show-answers`: with `--merge`, also print each provider's own answer after the consolidated one.
+- `-f, --format <text|markdown|md|json>`: output format, see [Output formats](#output-formats) (default `markdown`).
+- `-o, --output <path>`: write the result to this file instead of stdout, overwriting it. A `wrote <path>` note goes to stderr. If the file cannot be written, the result is printed to stdout instead and `pampas` exits with an error.
+- `--ignore-limits`: ignore every `daily_limit` for this run; requests are still counted.
+- `--usage-file <path>`: where request counts are kept (default `~/.local/state/pampas/usage.json`, `$XDG_STATE_HOME` respected). Also accepted by `pampas usage`.
+- `--config <path>`: providers config file (default `~/.config/pampas/providers.json`). Also accepted by `pampas key list`.
+- `pampas key set|delete|list`: manage stored keys, see [API keys](#api-keys). `pampas usage`: show today's request counts, see [Usage limits](#usage-limits). A subcommand must come before any flags (`pampas key list --config <path>`), and a prompt that is literally `key` or `usage` must be written `pampas -- key`.
+
+## Usage limits
+
+Free tiers cap requests per day, and going over can get a key throttled or blocked. `pampas` therefore counts every request it makes to an OpenAI-compatible provider, per UTC day (the day most services reset on), in the file given by `--usage-file`. Apple Intelligence entries are local and not counted.
+
+- **What counts:** each request to the chat endpoint, counted before it is sent, so a failed request (a `429`, say) still counts. A `fallback` model attempt and the `--merge` synthesis call each count as one request. Listing `/models` for a fallback does not.
+- **Limits:** set `"daily_limit": N` on an entry. Once the count reaches `N` the provider is skipped with a warning at startup, and a request that would exceed it mid-run (a fallback, or the synthesis call) is refused rather than sent. At 80% of the limit each request prints a `used of limit` note on stderr. `--ignore-limits` turns this off for a run.
+- **Sharing:** entries that draw on one account's quota can share a counter with the same `"usage_group"`. Each entry still checks the shared count against its own `daily_limit`. The example config groups the two Groq entries.
+- **Viewing:** `pampas usage` prints `name`, usage group and `used/limit` (`-` if there is no limit) for each entry.
+- **Limits of the counter:** it only knows the requests `pampas` made on this machine, so use from other tools or machines is not seen, and the file is not locked, so two `pampas` runs at the same moment can lose a count. Limits are daily; a monthly cap such as Free.ai's 1,000 requests a month is approximated by its example `daily_limit` of 30. An unreadable counts file is moved to `usage.json.corrupt` with a warning and counting starts again from zero.
+- **Example limits:** the example config sets OpenRouter to 50 a day (its limit for free models without credit) and Free.ai to 30. Groq has none set because its limits vary by model and were not confirmed; check your own limits on Groq's console and add `daily_limit` yourself.
+
+## Output formats
+
+`--format` chooses how the result is written, to stdout or to `--output <path>`. Failures and warnings always go to stderr, whatever the format.
+
+- `markdown` (alias `md`, the default): each answer under a `## name` heading.
+- `text`: each answer under a `name:` line, with no markup.
+- `json`: one pretty-printed JSON object:
+
+```json
+{
+  "prompt": "the prompt",
+  "answers": [
+    { "provider": "groq", "ok": true, "answer": "..." },
+    { "provider": "openrouter", "ok": false, "error": "HTTP 429 ..." }
+  ],
+  "merged": { "provider": "groq-120b", "answer": "..." },
+  "merge_error": null
+}
+```
+
+`answers` lists every provider that ran, in config order, failures included (`ok` false, with `error`). `merged` is `null` unless `--merge` produced a consolidated answer; `merge_error` is a string when `--merge` was given and failed (then `merged` is `null`), else `null`. Key order is alphabetical. `json` always includes the separate answers, so `--show-answers` has no effect on it.
+
+With `--merge`, markdown and text show the merged answer first (as `merged (by <name>)`) and the separate answers only with `--show-answers`, or instead of it if merging failed.
+
+## Merging answers
+
+By default each provider's answer is printed under its name. With `--merge`, `pampas` collects the answers and asks one provider, the synthesizer, to write a single answer: points all the answers agree on stated once, disagreements called out with the models that differ, and nothing added that no answer said. The output is a `## merged (by <name>)` section; add `--show-answers` to follow it with the separate answers.
+
+The synthesizer is `--synthesizer <name>` if given, else the first running entry with `"synthesizer": true`, else the first running provider. It must be a running provider (enabled, with a key, or with its Apple model available), and it also answers the prompt like the others.
+
+Merging costs one extra request to the synthesizer, which matters on free tiers, and the `--timeout` applies to it again. If only one provider answered, that answer is printed as is. If no provider answered, `pampas` exits with an error. If the synthesizer fails, the separate answers are printed instead, with a warning on stderr. A synthesis is a model's reading of the other answers, so check disagreements against the separate answers (`--show-answers`) when it matters.
+
+## Apple Intelligence
+
+On a Mac with Apple Intelligence (macOS 26 or later, Apple silicon), `pampas` can also ask Apple's on-device model. It is free, offline and needs no key. Apple only exposes it to Swift, so a small helper, `helpers/apple-fm.swift`, bridges it. Build it once and put it on your `PATH`:
+
+```
+swiftc -O helpers/apple-fm.swift -o ~/.local/bin/pampas-apple-fm
+```
+
+Then add an entry with `"kind": "apple_fm"` (the example config has one):
+
+```json
+{ "name": "apple", "kind": "apple_fm" }
+```
+
+`command` is optional (default `pampas-apple-fm`, looked up on `PATH`; a value with a slash is used as a path). Entries without `kind` are OpenAI-compatible as before. At startup `pampas` runs `pampas-apple-fm --check`; if the helper is missing or the model is unavailable (Apple Intelligence off, unsupported Mac, model still downloading), the entry is skipped with a warning and the other providers still run, so the same config works on any machine. `pampas key list` shows `no key needed` for these entries.
+
+## API keys
+
+Each provider's `api_key_env` is the name of its key. pampas looks for the key in this order:
+
+1. The environment variable of that name (an empty value counts as unset).
+2. The OS keychain: macOS Keychain, or the Secret Service on Linux (GNOME Keyring, KWallet, or anything else that implements it). Entries are stored under the service `pampas`, named by `api_key_env`.
+
+Keys never go in the providers config file.
+
+- `pampas key set <NAME>`: store a key, e.g. `pampas key set GROQ_API_KEY`. The key is typed at a hidden prompt, so it never appears on screen or in shell history.
+- `pampas key delete <NAME>`: remove a stored key.
+- `pampas key list [--config <path>]`: one tab-separated line per configured provider: name, key name, and where its key comes from (`environment variable`, `OS keychain`, or `missing`). Keys themselves are never printed.
+
+On a machine with no Secret Service (a headless Linux server, a container, CI), the keychain is unavailable: use environment variables there. A missing keychain only matters for providers whose environment variable is unset.
+
+## Attribution
+
+<a href="https://www.flaticon.com/free-icons/tiger" title="tiger icons">Tiger icons created by Magnific - Flaticon</a>

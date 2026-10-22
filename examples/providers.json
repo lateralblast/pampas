@@ -1,0 +1,109 @@
+[
+  {
+    "name": "groq",
+    "base_url": "https://api.groq.com/openai/v1",
+    "model": "openai/gpt-oss-20b",
+    "api_key_env": "GROQ_API_KEY",
+    "usage_group": "groq"
+  },
+  {
+    "name": "groq-120b",
+    "base_url": "https://api.groq.com/openai/v1",
+    "model": "openai/gpt-oss-120b",
+    "api_key_env": "GROQ_API_KEY",
+    "synthesizer": true,
+    "usage_group": "groq"
+  },
+  {
+    "name": "openrouter",
+    "base_url": "https://openrouter.ai/api/v1",
+    "model": "minimax/minimax-m3.1-flash:free",
+    "api_key_env": "OPENROUTER_API_KEY",
+    "fallback": "free_models",
+    "daily_limit": 50
+  },
+  {
+    "name": "freeai",
+    "base_url": "https://api.free.ai/v1",
+    "chat_path": "/chat/",
+    "model": "qwen7b",
+    "api_key_env": "FREEAI_API_KEY",
+    "daily_limit": 30
+  },
+  {
+    "name": "nvidia-deepseek",
+    "base_url": "https://integrate.api.nvidia.com/v1",
+    "model": "deepseek-ai/deepseek-v4.1-flash",
+    "api_key_env": "NVIDIA_API_KEY",
+    "usage_group": "nvidia"
+  },
+  {
+    "name": "nvidia-glm",
+    "base_url": "https://integrate.api.nvidia.com/v1",
+    "model": "z-ai/glm-5.3-flash",
+    "api_key_env": "NVIDIA_API_KEY",
+    "usage_group": "nvidia"
+  },
+  {
+    "name": "nvidia-nemotron",
+    "base_url": "https://integrate.api.nvidia.com/v1",
+    "model": "nvidia/nemotron-3-ultra-550b-a55b",
+    "api_key_env": "NVIDIA_API_KEY",
+    "usage_group": "nvidia"
+  },
+  {
+    "name": "cloudflare-gpt-oss",
+    "base_url": "https://api.cloudflare.com/client/v4/accounts/YOUR_ACCOUNT_ID/ai/v1",
+    "model": "@cf/openai/gpt-oss-120b",
+    "api_key_env": "CLOUDFLARE_API_KEY",
+    "usage_group": "cloudflare"
+  },
+  {
+    "name": "cloudflare-llama",
+    "base_url": "https://api.cloudflare.com/client/v4/accounts/YOUR_ACCOUNT_ID/ai/v1",
+    "model": "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+    "api_key_env": "CLOUDFLARE_API_KEY",
+    "usage_group": "cloudflare"
+  },
+  {
+    "name": "cloudflare-gemma",
+    "base_url": "https://api.cloudflare.com/client/v4/accounts/YOUR_ACCOUNT_ID/ai/v1",
+    "model": "@cf/google/gemma-4-26b-a4b-it",
+    "api_key_env": "CLOUDFLARE_API_KEY",
+    "usage_group": "cloudflare"
+  },
+  {
+    "name": "cohere",
+    "base_url": "https://api.cohere.ai/compatibility/v1",
+    "model": "command-a-plus-05-2026",
+    "api_key_env": "COHERE_API_KEY",
+    "daily_limit": 30,
+    "usage_group": "cohere"
+  },
+  {
+    "name": "cohere-r-plus",
+    "base_url": "https://api.cohere.ai/compatibility/v1",
+    "model": "command-r-plus-08-2024",
+    "api_key_env": "COHERE_API_KEY",
+    "daily_limit": 30,
+    "usage_group": "cohere"
+  },
+  {
+    "name": "gemini",
+    "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
+    "model": "gemini-flash-latest",
+    "api_key_env": "GEMINI_API_KEY",
+    "usage_group": "gemini"
+  },
+  {
+    "name": "gemini-lite",
+    "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
+    "model": "gemini-flash-lite-latest",
+    "api_key_env": "GEMINI_API_KEY",
+    "usage_group": "gemini"
+  },
+  {
+    "name": "apple",
+    "kind": "apple_fm"
+  }
+]
