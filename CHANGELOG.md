@@ -4,6 +4,12 @@ Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.5.7] - 2026-10-23
+
+### Fixed
+
+- The README's Cloudflare account id instructions now say where **Workers & Pages** is in the dashboard: under **Compute**.
+
 ## [0.5.6] - 2026-10-23
 
 ### Added

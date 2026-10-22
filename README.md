@@ -2,7 +2,7 @@
 
 # pampas
 
-Version: 0.5.6
+Version: 0.5.7
 
 **pampas** is short for Parallel AI Multi-provider Prompt Aggregator & Synthesizer: a command-line tool and desktop app that send one prompt to several free AI services in parallel and merge the results.
 
@@ -343,7 +343,7 @@ The three `cloudflare-*` example entries need two things from your Cloudflare ac
 1. **Account id.** In the Cloudflare dashboard (`dash.cloudflare.com`) it is in any of these places; the layout changes now and then, so treat the exact labels as approximate:
    - the address bar after you log in: `https://dash.cloudflare.com/<32-character id>/home`;
    - **Account Home**, in the three-dot menu next to the account name: **Copy account ID**;
-   - the **Workers & Pages** overview, in the right-hand sidebar;
+   - **Compute** > **Workers & Pages**, the overview page, in the right-hand sidebar;
    - **AI** > **Workers AI**, which shows the account id and a ready-made API URL (useful to confirm you picked the account that has Workers AI if you have several).
 2. **API token.** Create one at https://dash.cloudflare.com/profile/api-tokens (**Create Token**) with the **Workers AI** permission.
 3. **Store them.** The token is a secret, so it goes in the keychain; the account id is a setting:
