@@ -2,7 +2,7 @@
 
 # pampas
 
-Version: 0.2.7
+Version: 0.3.3
 
 **pampas** is short for Parallel AI Multi-provider Prompt Aggregator & Synthesizer: a CLI that sends one prompt to several free AI services in parallel and merges the results.
 
@@ -40,7 +40,7 @@ Providers are listed in `~/.config/pampas/providers.json`, a JSON array. Any ser
 ]
 ```
 
-`chat_path` is optional (default `/chat/completions`): the path appended to `base_url` for chat requests, for services that use a different one, such as Free.ai's `/chat/`. `fallback` is optional: `"free_models"` makes a provider whose `model` fails (an HTTP error such as `429` or `404`; a timeout does not trigger it) list the service's `/models` and try up to 3 free text models in listed order (a model counts as free when its prompt and completion prices are both `0` and its id ends in `:free`; safety classifiers and non-text models are skipped). When a fallback model answers, a notice naming it goes to stderr. The whole attempt, fallbacks included, shares the `--timeout`, so raise it (for example `--timeout 60`) for providers with a fallback. It needs a service that lists pricing in `/models`, as OpenRouter does, and the example `openrouter` entry uses it. `synthesizer` is optional (default `false`): with `--merge`, the first running entry marked `true` writes the consolidated answer (see [Merging answers](#merging-answers)). `daily_limit` is optional: the most requests to make per UTC day, after which the provider is skipped (see [Usage limits](#usage-limits)). `usage_group` is optional: the name requests are counted under, default the entry's own name; entries that share one account's quota should share a group. `enabled` is optional (default `true`): `false` leaves the provider out of runs unless `--enable <name>` is given; it works on `apple_fm` entries too. `api_key_env` names the key: see [API keys](#api-keys); leave it out for a service that needs no key, such as Ollama (see [Ollama](#ollama)). A provider with no key is skipped with a warning. Each provider's answer is printed under a `## name` heading; failures go to stderr.
+`chat_path` is optional (default `/chat/completions`): the path appended to `base_url` for chat requests, for services that use a different one, such as Free.ai's `/chat/`. `fallback` is optional: `"free_models"` makes a provider whose `model` fails (an HTTP error such as `429` or `404`; a timeout does not trigger it) list the service's `/models` and try up to 3 free text models in listed order (a model counts as free when its prompt and completion prices are both `0` and its id ends in `:free`; safety classifiers and non-text models are skipped). When a fallback model answers, a notice naming it goes to stderr. The whole attempt, fallbacks included, shares the `--timeout`, so raise it (for example `--timeout 60`) for providers with a fallback. It needs a service that lists pricing in `/models`, as OpenRouter does, and the example `openrouter` entry uses it. `synthesizer` is optional (default `false`): with `--merge`, the first running entry marked `true` writes the consolidated answer (see [Merging answers](#merging-answers)). `daily_limit` is optional: the most requests to make per UTC day, after which the provider is skipped (see [Usage limits](#usage-limits)). `usage_group` is optional: the name requests are counted under, default the entry's own name; entries that share one account's quota should share a group. `enabled` is optional (default `true`): `false` leaves the provider out of runs unless `--enable <name>` is given; it works on `apple_fm` entries too. `api_key_env` names the key: see [API keys](#api-keys); leave it out for a service that needs no key, such as Ollama (see [Ollama](#ollama)). A provider whose named key is missing is skipped with a warning. Each provider's answer is printed under a `## name` heading; failures go to stderr.
 
 ## Providers
 
@@ -57,6 +57,7 @@ Status as found while testing on 2026-10-22, each model with a real key. Free ti
 | **Cloudflare Workers AI** | `cloudflare-gpt-oss`, `cloudflare-llama`, `cloudflare-gemma` | `@cf/openai/gpt-oss-120b`, `@cf/meta/llama-3.3-70b-instruct-fp8-fast`, `@cf/google/gemma-4-26b-a4b-it` | 10,000 "Neurons" a day (reported, unconfirmed), which `pampas` cannot count; no `daily_limit`. | Replace `YOUR_ACCOUNT_ID` in each `base_url`. `@cf/zai-org/glm-5.3-flash` returns `403`: not on the free plan. Entries share a `cloudflare` group. |
 | **Cohere** (trial key) | `cohere`, `cohere-r-plus` | `command-a-plus-05-2026`, `command-r-plus-08-2024` (also `command-a-03-2025`, `command-r7b-12-2024`) | About 1,000 calls a month (recalled, unconfirmed), non-commercial use only; `daily_limit` is 30. | OpenAI-compatible endpoint `https://api.cohere.ai/compatibility/v1`. Entries share a `cohere` group. |
 | **Google Gemini** | `gemini`, `gemini-lite` | `gemini-flash-latest`, `gemini-flash-lite-latest` | Not confirmed; AI Studio shows them per model. No `daily_limit` set. | The `-latest` aliases keep working as models change; `gemini-2.5-flash` returned `404` (retired for new keys) and `gemma-4-31b-it` a `500`. The key must come from a new AI Studio project, or it can return `403 PERMISSION_DENIED`. Google may use free-tier prompts to improve its products. Entries share a `gemini` group. |
+| **Ollama** (local or remote) | `ollama`, `ollama-remote` | `qwen2.5:3b` (local), `gemma4:12b` (remote) | Local and unlimited; set a `daily_limit` yourself if you want a cap. | No key. Both entries are `enabled: false` in the example, so use `--enable ollama`. See [Ollama](#ollama). |
 | **Apple Intelligence** | `apple` | Apple's on-device model | Local and unlimited; not counted. | Needs macOS 26 or later on Apple silicon with Apple Intelligence on, and the Swift helper (see [Apple Intelligence](#apple-intelligence)). Skipped if unavailable. |
 
 ### Getting API keys
@@ -72,6 +73,7 @@ Store each key with `pampas key set <ENV VAR>` (typed at a hidden prompt) or exp
 | Cloudflare | `CLOUDFLARE_API_KEY` | https://dash.cloudflare.com/profile/api-tokens: **Create Token** with the **Workers AI** permission. Also copy your account id (the 32-character id in the dashboard URL, or on the Workers & Pages overview) into the entries' `base_url`. |
 | Cohere | `COHERE_API_KEY` | https://dashboard.cohere.com/api-keys: the default **Trial** key is enough. |
 | Google Gemini | `GEMINI_API_KEY` | https://aistudio.google.com/apikey: **Create API key**, choosing **Create API key in new project**. Do not enable billing on the project. |
+| Ollama | none | No key; see [Ollama](#ollama). |
 | Apple Intelligence | none | No key; build the helper as described below. |
 
 ### Tried and not usable for free
@@ -101,7 +103,8 @@ Store each key with `pampas key set <ENV VAR>` (typed at a hidden prompt) or exp
 - `--ignore-limits`: ignore every `daily_limit` for this run; requests are still counted.
 - `--usage-file <path>`: where request counts are kept (default `~/.local/state/pampas/usage.json`, `$XDG_STATE_HOME` respected). Also accepted by `pampas usage`.
 - `--config <path>`: providers config file (default `~/.config/pampas/providers.json`). Also accepted by `pampas key list`.
-- `pampas key set|delete|list`: manage stored keys, see [API keys](#api-keys). `pampas usage`: show today's request counts, see [Usage limits](#usage-limits). A subcommand must come before any flags (`pampas key list --config <path>`), and a prompt that is literally `key` or `usage` must be written `pampas -- key`.
+- `pampas init`: write the bundled example config to the config path (`--config`, default `~/.config/pampas/providers.json`); it never overwrites an existing file. Run it first, then edit the file.
+- `pampas key set|delete|list|types`: manage stored keys, see [API keys](#api-keys). `pampas usage`: show today's request counts, see [Usage limits](#usage-limits). A subcommand must come before any flags (`pampas key list --config <path>`), and a prompt that is literally `key` or `usage` must be written `pampas -- key`.
 
 ## Usage limits
 
@@ -110,7 +113,22 @@ Free tiers cap requests per day, and going over can get a key throttled or block
 - **What counts:** each request to the chat endpoint, counted before it is sent, so a failed request (a `429`, say) still counts. A `fallback` model attempt and the `--merge` synthesis call each count as one request. Listing `/models` for a fallback does not.
 - **Limits:** set `"daily_limit": N` on an entry. Once the count reaches `N` the provider is skipped with a warning at startup, and a request that would exceed it mid-run (a fallback, or the synthesis call) is refused rather than sent. At 80% of the limit each request prints a `used of limit` note on stderr. `--ignore-limits` turns this off for a run.
 - **Sharing:** entries that draw on one account's quota can share a counter with the same `"usage_group"`. Each entry still checks the shared count against its own `daily_limit`. The example config groups the two Groq entries.
-- **Viewing:** `pampas usage` prints `name`, usage group and `used/limit` (`-` if there is no limit) for each entry.
+- **Viewing:** `pampas usage` prints a table of each entry's name, usage group and `used/limit` (`-` if there is no limit). For example, after a few requests:
+
+```
+$ pampas usage
+PROVIDER            GROUP          USED/LIMIT
+groq                groq           12/-
+groq-120b           groq           12/-
+openrouter          openrouter     41/50
+freeai              freeai         3/30
+cohere              cohere         0/30
+gemini              gemini         7/-
+ollama              ollama         0/-
+apple               -              local, not counted
+```
+
+  The two Groq entries show the same count because they share a usage group. The list is shortened here; it has one row per config entry.
 - **Limits of the counter:** it only knows the requests `pampas` made on this machine, so use from other tools or machines is not seen, and the file is not locked, so two `pampas` runs at the same moment can lose a count. Limits are daily; a monthly cap such as Free.ai's 1,000 requests a month is approximated by its example `daily_limit` of 30. An unreadable counts file is moved to `usage.json.corrupt` with a warning and counting starts again from zero.
 - **Example limits:** the example config sets OpenRouter to 50 a day (its limit for free models without credit) and Free.ai to 30. Groq has none set because its limits vary by model and were not confirmed; check your own limits on Groq's console and add `daily_limit` yourself.
 
@@ -164,26 +182,66 @@ Then add an entry with `"kind": "apple_fm"` (the example config has one):
 
 ## Ollama
 
-Ollama serves an OpenAI-compatible API, so it needs only a config entry, no key:
+[Ollama](https://ollama.com) runs models on your own machine or on one you control. It serves an OpenAI-compatible API under `/v1`, so pampas needs only a config entry, with no key and no code. Leave `api_key_env` out and no `Authorization` header is sent.
+
+### Local
+
+1. Install Ollama and pull a model: `ollama pull qwen2.5:7b`. `ollama list` shows what you have.
+2. Add an entry:
 
 ```json
 { "name": "ollama", "base_url": "http://localhost:11434/v1", "model": "qwen2.5:7b" }
 ```
 
-For a remote server use its address, e.g. `http://YOUR_OLLAMA_HOST:11434/v1` (start it with `OLLAMA_HOST=0.0.0.0` so it listens beyond localhost). If a reverse proxy in front of it wants a bearer token, add `api_key_env`. `model` must already be pulled (`ollama pull <model>`). Local models can be slow to load on the first request, so raise `--timeout` if one times out. Requests are counted like any other entry, but with no `daily_limit` nothing is ever skipped. Tested against a local Ollama and a remote one on the LAN.
+3. Run it: `pampas "your prompt"`. If the entry has `"enabled": false`, add `--enable ollama`.
+
+`model` must be exactly a name from `ollama list`, tag included (`qwen3:14b`, not `qwen3`).
+
+### Remote
+
+Use the other machine's address as the `base_url`:
+
+```json
+{ "name": "ollama-remote", "base_url": "http://YOUR_OLLAMA_HOST:11434/v1", "model": "gemma4:12b" }
+```
+
+By default Ollama listens only on `127.0.0.1`, so on the server start it with `OLLAMA_HOST=0.0.0.0 ollama serve`. If it runs as a systemd service, run `sudo systemctl edit ollama`, add `Environment="OLLAMA_HOST=0.0.0.0"` under `[Service]`, then `sudo systemctl restart ollama`. Open port 11434 in any firewall. Ollama has no authentication of its own, so expose it only on a trusted network. If a reverse proxy in front of it wants a bearer token, set `api_key_env` to the variable that holds it (see [API keys](#api-keys)).
+
+Check that the server is reachable and see its models with `curl http://YOUR_OLLAMA_HOST:11434/api/tags`. A `Connection refused` means the server is not running or not listening beyond localhost.
+
+### Notes
+
+- Local models can be slow, especially on the first request while the model loads into memory. Raise `--timeout` (default 30 seconds) if an entry times out; a large model often needs `--timeout 180` or more.
+- Several Ollama entries on one machine run at the same time and compete for it. A large model alongside others can be slow or run out of memory, so enable only the ones you need.
+- Requests are counted like any other entry. With no `daily_limit` nothing is ever skipped; add one if you want a cap.
+- `fallback: "free_models"` does not apply: Ollama's model list has no pricing.
+- Tested against a local Ollama and a remote one on the LAN.
 
 ## API keys
 
 Each provider's `api_key_env` is the name of its key. pampas looks for the key in this order:
 
 1. The environment variable of that name (an empty value counts as unset).
-2. The OS keychain: macOS Keychain, or the Secret Service on Linux (GNOME Keyring, KWallet, or anything else that implements it). Entries are stored under the service `pampas`, named by `api_key_env`.
+2. The OS keychain: macOS Keychain, or the Secret Service on Linux (GNOME Keyring, KWallet, or anything else that implements it). Entries are stored under the service `pampas`, named by `api_key_env`. Tested on macOS and on Ubuntu with GNOME Keyring (`secret-tool search service pampas` lists the stored keys); KWallet is untested.
 
 Keys never go in the providers config file.
 
-- `pampas key set <NAME>`: store a key, e.g. `pampas key set GROQ_API_KEY`. The key is typed at a hidden prompt, so it never appears on screen or in shell history.
+- `pampas key set <NAME> [--stdin]`: store a key, e.g. `pampas key set GROQ_API_KEY`. The key is typed at a hidden prompt, so it never appears on screen or in shell history. With `--stdin` the key is read from standard input instead, for scripts and password managers: `pass show groq | pampas key set GROQ_API_KEY --stdin`, or `pampas key set GROQ_API_KEY --stdin < keyfile`. There is deliberately no way to pass the key as an argument: it would sit in shell history, which a program cannot edit, and in `ps` output while the command runs. If you do type a key into the shell by mistake, delete the history line yourself (`history -d`/`fc`, or edit `~/.zsh_history`) and treat the key as exposed.
 - `pampas key delete <NAME>`: remove a stored key.
-- `pampas key list [--config <path>]`: one tab-separated line per configured provider: name, key name, and where its key comes from (`environment variable`, `OS keychain`, or `missing`). Keys themselves are never printed.
+- `pampas key types [--config <path>]`: a table (`KEY`, `PROVIDERS`) of the key names the config uses (the names to give `key set`), with the providers that use it, comma-separated. Providers with no key are left out. With no config file at the default path it lists the keys of the bundled example config instead and says so on stderr.
+- `pampas key list [--config <path>]`: a table (`PROVIDER`, `KEY`, `SOURCE`) with one row per configured provider: where its key comes from (`environment variable`, `OS keychain`, `missing`, `no key needed`, or `error: ...` if the keychain itself failed). Keys themselves are never printed. `key list`, `key types` and `usage` print an aligned table with a header row on a terminal, and bare tab-separated lines (no header) when piped, so scripts can parse them.
+
+  ```
+  $ pampas key list
+  PROVIDER            KEY                 SOURCE
+  groq                GROQ_API_KEY        environment variable
+  openrouter          OPENROUTER_API_KEY  missing
+  gemini              GEMINI_API_KEY      OS keychain
+  ollama              -                   no key needed
+  apple               -                   no key needed
+  ```
+
+  `missing` means neither the environment variable nor the keychain has the key: run `pampas key set <KEY>`. The list is shortened here; it has one row per config entry.
 
 On a machine with no Secret Service (a headless Linux server, a container, CI), the keychain is unavailable: use environment variables there. A missing keychain only matters for providers whose environment variable is unset.
 

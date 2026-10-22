@@ -4,6 +4,7 @@ mod output;
 mod provider;
 mod usage;
 
+use std::io::IsTerminal;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -80,6 +81,8 @@ struct Cli {
 enum Command {
     /// Show today's request count against each provider's daily limit (UTC day)
     Usage,
+    /// Write the bundled example providers config to the config path (default ~/.config/pampas/providers.json)
+    Init,
     /// Manage API keys in the OS keychain
     Key {
         #[command(subcommand)]
@@ -90,11 +93,18 @@ enum Command {
 #[derive(Subcommand)]
 enum KeyAction {
     /// Store a key, read from a hidden prompt; NAME is the provider's `api_key_env`, e.g. GROQ_API_KEY
-    Set { name: String },
+    Set {
+        name: String,
+        /// Read the key from standard input instead of a prompt, e.g. `pass show groq | pampas key set GROQ_API_KEY --stdin`
+        #[arg(long)]
+        stdin: bool,
+    },
     /// Remove a stored key
     Delete { name: String },
     /// Show where each configured provider's key comes from (never prints keys)
     List,
+    /// List the key names the configured providers use, with the providers that share each
+    Types,
 }
 
 /// One provider's answer, or the reason it failed.
@@ -132,7 +142,13 @@ fn default_usage_path() -> anyhow::Result<PathBuf> {
 }
 
 fn load_config(path: &Path) -> anyhow::Result<Vec<ProviderEntry>> {
-    let text = std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
+    let text = match std::fs::read_to_string(path) {
+        Ok(text) => text,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            anyhow::bail!("{} does not exist: run `pampas init` to create it from the bundled example, or pass --config", path.display())
+        }
+        Err(e) => return Err(e).with_context(|| format!("reading {}", path.display())),
+    };
     parse_config(&text)
 }
 
@@ -159,22 +175,89 @@ fn run_usage(config: Option<PathBuf>, usage_file: Option<PathBuf>) -> anyhow::Re
         },
         today_utc(),
     );
-    for entry in load_config(&path)? {
-        match entry {
+    let rows: Vec<Vec<String>> = load_config(&path)?
+        .iter()
+        .map(|entry| match entry {
             ProviderEntry::OpenAi(cfg) => {
                 let limit = cfg.daily_limit.map_or("-".to_string(), |l| l.to_string());
-                println!("{}\t{}\t{}/{}", cfg.name, cfg.usage_group(), usage.used(cfg.usage_group()), limit);
+                vec![cfg.name.clone(), cfg.usage_group().to_string(), format!("{}/{}", usage.used(cfg.usage_group()), limit)]
             }
-            ProviderEntry::AppleFm(cfg) => println!("{}\t-\tlocal, not counted", cfg.name),
+            ProviderEntry::AppleFm(cfg) => vec![cfg.name.clone(), "-".into(), "local, not counted".into()],
+        })
+        .collect();
+    print_table(&["PROVIDER", "GROUP", "USED/LIMIT"], &rows);
+    Ok(())
+}
+
+/// The reference config, for commands that are useful before the user has written their own.
+const EXAMPLE_CONFIG: &str = include_str!("../examples/providers.json");
+
+/// Lay out rows under `headers`: aligned columns with a header line, or, for scripts, bare tab-separated lines.
+fn format_table(headers: &[&str], rows: &[Vec<String>], aligned: bool) -> String {
+    if !aligned {
+        return rows.iter().map(|r| r.join("\t") + "\n").collect();
+    }
+    let widths: Vec<usize> = (0..headers.len())
+        .map(|i| rows.iter().map(|r| r[i].chars().count()).chain([headers[i].chars().count()]).max().unwrap_or(0))
+        .collect();
+    let line = |cells: Vec<&str>| {
+        let padded: Vec<String> = cells.iter().zip(&widths).map(|(c, w)| format!("{c:<w$}")).collect();
+        padded.join("  ").trim_end().to_string() + "\n"
+    };
+    let mut out = line(headers.to_vec());
+    for r in rows {
+        out += &line(r.iter().map(String::as_str).collect());
+    }
+    out
+}
+
+/// Print a table to stdout, aligned when it is a terminal and tab-separated when piped.
+fn print_table(headers: &[&str], rows: &[Vec<String>]) {
+    print!("{}", format_table(headers, rows, std::io::stdout().is_terminal()));
+}
+
+/// Write the example config to `config` (or the default path); never overwrite an existing file.
+fn run_init(config: Option<PathBuf>) -> anyhow::Result<()> {
+    let path = match config {
+        Some(p) => p,
+        None => default_config_path()?,
+    };
+    anyhow::ensure!(!path.exists(), "{} already exists; not overwriting it", path.display());
+    if let Some(dir) = path.parent() {
+        std::fs::create_dir_all(dir).with_context(|| format!("creating {}", dir.display()))?;
+    }
+    std::fs::write(&path, EXAMPLE_CONFIG).with_context(|| format!("writing {}", path.display()))?;
+    println!("wrote {}", path.display());
+    println!("edit it: replace YOUR_ACCOUNT_ID (Cloudflare) and YOUR_OLLAMA_HOST, and remove providers you do not use");
+    println!("then store keys with `pampas key set <NAME>`; `pampas key types` lists the names");
+    Ok(())
+}
+
+/// Each distinct `api_key_env` in the config with the providers that use it, in config order.
+fn key_types(entries: &[ProviderEntry]) -> Vec<(String, Vec<String>)> {
+    let mut types: Vec<(String, Vec<String>)> = Vec::new();
+    for entry in entries {
+        let ProviderEntry::OpenAi(cfg) = entry else { continue };
+        let Some(env) = &cfg.api_key_env else { continue };
+        match types.iter_mut().find(|(name, _)| name == env) {
+            Some((_, users)) => users.push(cfg.name.clone()),
+            None => types.push((env.clone(), vec![cfg.name.clone()])),
         }
     }
-    Ok(())
+    types
+}
+
+/// The key piped in on standard input: all of it, since a key is one line and may have a trailing newline.
+fn read_key(mut input: impl std::io::Read) -> anyhow::Result<String> {
+    let mut text = String::new();
+    input.read_to_string(&mut text).context("reading the key from standard input")?;
+    Ok(text)
 }
 
 fn run_key(action: KeyAction, config: Option<PathBuf>) -> anyhow::Result<()> {
     match action {
-        KeyAction::Set { name } => {
-            let key = rpassword::prompt_password(format!("{name}: "))?;
+        KeyAction::Set { name, stdin } => {
+            let key = if stdin { read_key(std::io::stdin().lock())? } else { rpassword::prompt_password(format!("{name}: "))? };
             let key = key.trim();
             anyhow::ensure!(!key.is_empty(), "no key entered");
             Keychain.set(&name, key)?;
@@ -187,25 +270,47 @@ fn run_key(action: KeyAction, config: Option<PathBuf>) -> anyhow::Result<()> {
                 println!("{name} was not in the OS keychain");
             }
         }
+        KeyAction::Types => {
+            let entries = match config {
+                Some(p) => load_config(&p)?,
+                None => {
+                    let path = default_config_path()?;
+                    if path.exists() {
+                        load_config(&path)?
+                    } else {
+                        eprintln!("{} not found; showing the keys used by the bundled example config", path.display());
+                        parse_config(EXAMPLE_CONFIG)?
+                    }
+                }
+            };
+            let rows: Vec<Vec<String>> =
+                key_types(&entries).into_iter().map(|(env, users)| vec![env, users.join(", ")]).collect();
+            print_table(&["KEY", "PROVIDERS"], &rows);
+        }
         KeyAction::List => {
             let path = match config {
                 Some(p) => p,
                 None => default_config_path()?,
             };
-            for entry in load_config(&path)? {
-                match entry {
+            let rows: Vec<Vec<String>> = load_config(&path)?
+                .iter()
+                .map(|entry| match entry {
                     ProviderEntry::OpenAi(cfg) => {
-                        let status = match find_key(&cfg, &Keychain) {
+                        let status = match find_key(cfg, &Keychain) {
                             Ok(None) => "no key needed".to_string(),
                             Ok(Some((_, Source::Env))) => "environment variable".to_string(),
                             Ok(Some((_, Source::Keychain))) => "OS keychain".to_string(),
-                            Err(e) => format!("missing ({e:#})"),
+                            // A missing key is the common case and the fix is in `pampas key set`; only say
+                            // more when the keychain itself failed.
+                            Err(e) if e.to_string().contains(": no key:") => "missing".to_string(),
+                            Err(e) => format!("error: {e:#}"),
                         };
-                        println!("{}\t{}\t{}", cfg.name, cfg.api_key_env.as_deref().unwrap_or("-"), status);
+                        vec![cfg.name.clone(), cfg.api_key_env.clone().unwrap_or_else(|| "-".into()), status]
                     }
-                    ProviderEntry::AppleFm(cfg) => println!("{}\t-\tno key needed", cfg.name),
-                }
-            }
+                    ProviderEntry::AppleFm(cfg) => vec![cfg.name.clone(), "-".into(), "no key needed".into()],
+                })
+                .collect();
+            print_table(&["PROVIDER", "KEY", "SOURCE"], &rows);
         }
     }
     Ok(())
@@ -216,6 +321,7 @@ async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
     match cli.command {
         Some(Command::Key { action }) => return run_key(action, cli.config),
+        Some(Command::Init) => return run_init(cli.config),
         Some(Command::Usage) => return run_usage(cli.config, cli.usage_file),
         None => {}
     }
@@ -351,5 +457,45 @@ fn emit(report: &output::Report, format: output::Format, path: Option<&Path>) ->
             print!("{text}");
             Err(anyhow::Error::new(e).context(format!("writing {} (output printed instead)", path.display())))
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn read_key_takes_piped_input() {
+        assert_eq!(read_key("sk-abc\n".as_bytes()).unwrap().trim(), "sk-abc");
+    }
+
+    #[test]
+    fn table_aligns_when_asked_and_is_tab_separated_otherwise() {
+        let rows = vec![vec!["a".to_string(), "x".to_string()], vec!["long".to_string(), "y".to_string()]];
+        assert_eq!(format_table(&["NAME", "V"], &rows, true), "NAME  V\na     x\nlong  y\n");
+        assert_eq!(format_table(&["NAME", "V"], &rows, false), "a\tx\nlong\ty\n");
+    }
+
+    #[test]
+    fn bundled_example_config_parses() {
+        assert!(!key_types(&parse_config(EXAMPLE_CONFIG).unwrap()).is_empty());
+    }
+
+    #[test]
+    fn key_types_group_providers_and_skip_keyless() {
+        let entries = parse_config(
+            r#"[
+            {"name":"a","base_url":"u","model":"m","api_key_env":"K1"},
+            {"name":"o","base_url":"u","model":"m"},
+            {"name":"b","base_url":"u","model":"m","api_key_env":"K2"},
+            {"name":"c","base_url":"u","model":"m","api_key_env":"K1"},
+            {"name":"apple","kind":"apple_fm"}
+        ]"#,
+        )
+        .unwrap();
+        assert_eq!(
+            key_types(&entries),
+            vec![("K1".to_string(), vec!["a".to_string(), "c".to_string()]), ("K2".to_string(), vec!["b".to_string()])]
+        );
     }
 }

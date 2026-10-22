@@ -4,6 +4,8 @@ Status: `[ ]` open, `[~]` in progress, `[x]` done.
 
 ## Open
 
+- [ ] Tauri GUI, in steps. (1) Split the logic into a library crate (provider building, `fan_out`, merge, usage, keystore) that returns data, such as replies and warnings, instead of printing; keep a thin CLI `main.rs`; make a Cargo workspace; the 31 existing tests should pass unchanged. (2) Add `src-tauri` depending on the library, with commands `list_providers`, `ask` (emit an event as each provider answers), `set_key`/`delete_key` and config load/save. (3) A frontend with a prompt box, provider checklist and merge toggle, a card per answer rendered as markdown, and a settings view for keys and usage. Decide first whether the GUI edits `providers.json` or only reads it. Linux needs the WebKitGTK system packages.
+- [ ] Keychain: when no Secret Service is running, `key list` says "No default store has been set", which does not say what to do; reword it to point at environment variables. Also try KWallet (KDE) and a headless Linux session.
 - [ ] Confirm Cohere's trial-key limits (calls per month, requests per minute) and adjust the `cohere` entries' `daily_limit`, now an assumed 30 a day from a recalled 1,000 a month.
 - [ ] Cloudflare Workers AI's free plan is limited in Neurons per day, not requests, so `daily_limit` cannot express it; confirm the limit and consider estimating Neurons or reading its response headers.
 - [ ] Confirm NVIDIA's free-tier limits and set a `daily_limit` / `usage_group` accordingly. Also retry `openai/gpt-oss-20b` and `google/gemma-4-31b-it` on NVIDIA, which timed out after 90s on 2026-10-22 (`moonshotai/kimi-k2.6` returned 404 for the account).
@@ -12,12 +14,13 @@ Status: `[ ]` open, `[~]` in progress, `[x]` done.
 - [ ] Subcommands only work before any flags (`pampas key list --config <path>`, not `pampas --config <path> key list`); find out why clap treats the subcommand as the prompt there and fix it.
 - [ ] Merge: the synthesis prompt was only tried on one question; test it on prompts the models disagree on, and look at how `--format json` presents it.
 - [ ] Apple Intelligence: the helper answers one prompt per process with no system instructions, streaming or session reuse, and its unavailable-reason text is untested on a Mac with Apple Intelligence off.
-- [ ] Try the keychain on a Linux machine with a running Secret Service (written from the crate's documented behaviour; only macOS has been run).
 - [ ] Find Gemini's real free-tier limits (AI Studio shows them per model) and set `daily_limit` on the `gemini*` example entries.
 - [ ] Support non-OpenAI-compatible services if any chosen one needs it.
 
 ## Done
 
+- [x] `pampas key types` lists the key names the config uses and which providers share each.
+- [x] Tried the keychain on Linux (Ubuntu, GNOME Keyring through the Secret Service): `pampas key set`, `key list` and `key delete` work, the key is stored under service `pampas` and visible to `secret-tool`.
 - [x] Ollama support, local and remote, via the OpenAI-compatible endpoint and an optional `api_key_env`; tested against a local and a remote server.
 - [x] Example config entries for Gemini (`gemini-flash-latest`, `gemini-flash-lite-latest`) with a key from a new AI Studio project, tested against the real API; the earlier `403` was the old key's project. Cerebras was dropped (its no-card free tier ended).
 - [x] Example config entries for Cohere's trial key (Command A Plus, Command R Plus), tested against the real API.

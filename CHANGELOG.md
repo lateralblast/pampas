@@ -4,6 +4,47 @@ Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.3.3] - 2026-10-23
+
+### Changed
+
+- `pampas key list`, `key types` and `usage` print an aligned table with a header row when stdout is a terminal, and the same tab-separated lines as before (no header) when piped.
+- `pampas key list` shows just `missing` for a provider with no key, instead of repeating the full "no key: set ..." message on every row.
+
+## [0.3.2] - 2026-10-23
+
+### Added
+
+- `pampas init` writes the bundled example providers config to `~/.config/pampas/providers.json` (or the `--config` path), creating the directory, and refuses to overwrite an existing file.
+
+### Changed
+
+- A missing providers config now says `<path> does not exist: run `pampas init` ...` instead of "No such file or directory".
+
+## [0.3.1] - 2026-10-23
+
+### Added
+
+- `pampas key set <NAME> --stdin` reads the key from standard input (`pass show groq | pampas key set GROQ_API_KEY --stdin`), for scripts and password managers. The key never appears as an argument, so it is not in shell history or `ps`.
+
+## [0.3.0] - 2026-10-23
+
+### Fixed
+
+- `pampas key types` failed with "No such file or directory" when `~/.config/pampas/providers.json` did not exist. It now shows the keys used by the bundled `examples/providers.json` and says so on stderr. An explicit `--config` path that is missing is still an error.
+
+## [0.2.9] - 2026-10-23
+
+### Added
+
+- `pampas key types [--config <path>]` lists each key name (`api_key_env`) the configured providers use, with the providers that share it. Entries with no key, such as Ollama and Apple, are left out.
+
+## [0.2.8] - 2026-10-23
+
+### Changed
+
+- Tested the OS keychain on Linux (Ubuntu with GNOME Keyring): `pampas key set`, `key list` and `key delete` work against the Secret Service, and a stored key is used when the environment variable is unset. `README.md` now says so.
+
 ## [0.2.7] - 2026-10-23
 
 ### Added
