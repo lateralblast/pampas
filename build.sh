@@ -13,7 +13,9 @@
 #                                     /dev/kvm, and `python3 windows/vm.py up` once first; on Windows, e.g. in Git Bash: builds natively)
 #   ./build.sh --target windows --docker   (cross-compiles in a Linux container, docker/windows/Dockerfile: MinGW,
 #                                     x86_64-pc-windows-gnu; the default on a Mac; nothing built this way has been run on Windows)
-# Add --no-cli to skip the command-line binary. Results are copied to ./dist/ (gitignored).
+# The app's installer and the command line (pampas-cli) are built apart: the installer is a .deb/.rpm/AppImage, .exe or .dmg, the
+# command line an archive, pampas-cli-<version>-<system>.tar.gz or .zip. Add --no-cli to skip the command line.
+# Results are copied to ./dist/ (gitignored).
 # A target can only be built on its own platform (the app links the system web view), except through the VM and Docker routes above.
 # Needs the Rust toolchain, Node (the interface is built with it) and tauri-cli (cargo install tauri-cli --version '^2').
 # It never commits, tags, pushes or publishes anything.
@@ -65,6 +67,34 @@ build_ui() {
   npm --prefix "$root/ui" run build
 }
 
+# The command line is shipped as an archive, apart from the app's installer: pampas-cli-<version>-<label>.tar.gz
+# (Linux, macOS) or .zip (Windows), holding a folder of the same name with just the binary in it.
+# usage: package_cli <path to the built binary> <label, e.g. linux or windows> [.exe]
+package_cli() {
+  local bin="$1" label="$2" exe="${3:-}" name work
+  name="pampas-cli-$version-$label"
+  work=$(mktemp -d)
+  mkdir "$work/$name"
+  cp "$bin" "$work/$name/pampas-cli$exe"
+  chmod +x "$work/$name/pampas-cli$exe"
+  mkdir -p "$dist"
+  if [ -n "$exe" ]; then
+    rm -f "$dist/$name.zip"
+    if command -v zip >/dev/null; then
+      (cd "$work" && zip -q -r "$dist/$name.zip" "$name")
+    elif command -v python3 >/dev/null; then
+      python3 -I -c 'import shutil, sys; shutil.make_archive(sys.argv[1], "zip", sys.argv[2], sys.argv[3])' "$dist/$name" "$work" "$name"
+    else
+      echo "neither zip nor python3 found: cannot make $name.zip" >&2; exit 1
+    fi
+    echo "  $dist/$name.zip"
+  else
+    (cd "$work" && tar -czf "$dist/$name.tar.gz" "$name")
+    echo "  $dist/$name.tar.gz"
+  fi
+  rm -rf "$work"
+}
+
 # Windows from a Linux host: the installer and the command-line binary are built in the Windows 11 VM (windows/vm.py)
 windows_vm() {
   command -v python3 >/dev/null || { echo "python3 not found (windows/vm.py needs it)" >&2; exit 1; }
@@ -77,9 +107,8 @@ windows_vm() {
     cp "$f" "$dist/"; echo "  $dist/$(basename "$f")"; found=1
   done
   [ "$found" = 1 ] || { echo "no installer found under windows/out/bundle/nsis" >&2; exit 1; }
-  if [ "$cli" = 1 ] && [ -f "$root/windows/out/bundle/cli/pampas.exe" ]; then
-    cp "$root/windows/out/bundle/cli/pampas.exe" "$dist/pampas-$version-windows.exe"
-    echo "  $dist/pampas-$version-windows.exe"
+  if [ "$cli" = 1 ] && [ -f "$root/windows/out/bundle/cli/pampas-cli.exe" ]; then
+    package_cli "$root/windows/out/bundle/cli/pampas-cli.exe" windows .exe
   fi
   if [ "$vmrc" != 0 ]; then
     echo "the Windows build failed (see windows/out/build.log); the files above are what was built before it failed" >&2
@@ -140,9 +169,126 @@ windows_docker() {
     [ -f "$f" ] || continue
     cp "$f" "$dist/pampas_${version}_x64-setup.exe"; echo "  $dist/pampas_${version}_x64-setup.exe"
   done
-  if [ "$cli" = 1 ] && [ -f "$root/windows/out/cross/pampas.exe" ]; then
-    cp "$root/windows/out/cross/pampas.exe" "$dist/pampas-$version-windows.exe"
-    echo "  $dist/pampas-$version-windows.exe"
+  if [ "$cli" = 1 ] && [ -f "$root/windows/out/cross/pampas-cli.exe" ]; then
+    package_cli "$root/windows/out/cross/pampas-cli.exe" windows .exe
+  fi
+  echo "done: $dist"
+}
+
+build_target() {
+  host=$(uname -s)
+  case "$target" in deb|rpm) package="$target"; target=linux ;; esac
+  case "$target" in
+    mac|macos)   want=Darwin; bundles=dmg ;;
+    linux)       want=Linux;  bundles=$(native_package) ;;
+    windows|win) want=MINGW;  bundles=nsis ;;
+    *) echo "unknown target: $target (mac, linux, deb, rpm, windows)" >&2; exit 1 ;;
+  esac
+  if [ -n "$package" ] && [ "$target" != linux ]; then
+    echo "--package only applies to --target linux" >&2; exit 1
+  fi
+  if [ "$target" = linux ] && [ -n "$package" ]; then
+    bundles=""
+    for p in ${package//,/ }; do
+      case "$p" in
+        all) bundles="deb,rpm,appimage"; break ;;
+        deb|rpm|appimage) bundles="${bundles:+$bundles,}$p" ;;
+        *) echo "unknown --package: $p (deb, rpm, appimage, all)" >&2; exit 1 ;;
+      esac
+    done
+  fi
+  if [ "$target" = linux ] && { [ "$docker" = 1 ] || [ "$host" != Linux ]; }; then
+    linux_docker; return
+  fi
+  if [ "$target" = linux ]; then
+    case ",$bundles," in
+      *,rpm,*) command -v rpmbuild >/dev/null || { echo "rpmbuild not found: install it (Debian/Ubuntu: apt install rpm; Fedora: dnf install rpm-build)" >&2; exit 1; } ;;
+    esac
+  fi
+  if [ "$target" = windows ] || [ "$target" = win ]; then
+    if [ "$docker" = 1 ] || [ "$host" = Darwin ]; then windows_docker; return; fi
+    if [ "$host" = Linux ]; then windows_vm; return; fi
+  fi
+  case "$host" in
+    $want*) ;;
+    *) echo "the $target installer must be built on $target (this is $host)" >&2; exit 1 ;;
+  esac
+
+  command -v cargo >/dev/null || { echo "cargo not found: install Rust (https://rustup.rs)" >&2; exit 1; }
+  cargo tauri --version >/dev/null 2>&1 || { echo "tauri-cli not found: cargo install tauri-cli --version '^2'" >&2; exit 1; }
+
+  triple="" triple_args=()
+  if [ "$target" = mac ] || [ "$target" = macos ]; then
+    case "${arch:-native}" in
+      native) ;;
+      arm64) triple=aarch64-apple-darwin ;;
+      x64) triple=x86_64-apple-darwin ;;
+      universal) triple=universal-apple-darwin ;;
+      *) echo "unknown --arch: $arch (arm64, x64, universal)" >&2; exit 1 ;;
+    esac
+    if [ -n "$triple" ]; then
+      triple_args=(--target "$triple")
+      # make sure the Rust standard library for the requested architecture is installed
+      case "$triple" in
+        universal-apple-darwin) rustup target add aarch64-apple-darwin x86_64-apple-darwin ;;
+        *) rustup target add "$triple" ;;
+      esac
+    fi
+  elif [ -n "$arch" ]; then
+    echo "--arch only applies to --target mac (or --target linux with --docker)" >&2; exit 1
+  fi
+  [ "$docker" = 0 ] || [ "$target" = linux ] || [ "$target" = windows ] || { echo "--docker only applies to --target linux and windows" >&2; exit 1; }
+
+  mkdir -p "$dist"
+  build_ui
+  stamp=$(mktemp)
+  echo "== building the installer ($target, $bundles) =="
+  # cargo tauri build runs in src-tauri; the workspace puts the bundles under the root target/ directory
+  (cd "$root/src-tauri" && cargo tauri build --bundles "$bundles" ${triple_args[@]+"${triple_args[@]}"})
+
+  # Tauri puts bundles under target/[<triple>/]release/bundle/<kind>/
+  found=0
+  while IFS= read -r f; do
+    cp -R "$f" "$dist/"
+    echo "  $dist/$(basename "$f")"
+    found=1
+  done < <(find "$root/target" -path '*/release/bundle/*' -type f \
+    \( -name '*.dmg' -o -name '*.deb' -o -name '*.rpm' -o -name '*.AppImage' -o -name '*-setup.exe' \) -newer "$stamp" 2>/dev/null)
+  rm -f "$stamp"
+  [ "$found" = 1 ] || { echo "no installer found under target/ (did the bundle step run?)" >&2; exit 1; }
+
+  if [ "$cli" = 1 ]; then
+    echo "== building the pampas-cli command-line binary =="
+    exe=""; [ "$target" != windows ] || exe=".exe"
+    if [ "$triple" = universal-apple-darwin ]; then
+      # plain cargo has no universal target: build both architectures and join them with lipo
+      (cd "$root" && cargo build --release -p pampas --target aarch64-apple-darwin &&
+        cargo build --release -p pampas --target x86_64-apple-darwin)
+      mkdir -p "$root/target/universal-apple-darwin/release"
+      lipo -create -output "$root/target/universal-apple-darwin/release/pampas-cli" \
+        "$root/target/aarch64-apple-darwin/release/pampas-cli" "$root/target/x86_64-apple-darwin/release/pampas-cli"
+      bin="$root/target/universal-apple-darwin/release/pampas-cli"
+    elif [ -n "$triple" ]; then
+      (cd "$root" && cargo build --release -p pampas --target "$triple")
+      bin="$root/target/$triple/release/pampas-cli$exe"
+    else
+      (cd "$root" && cargo build --release -p pampas)
+      bin="$root/target/release/pampas-cli$exe"
+    fi
+    [ -f "$bin" ] || { echo "the command-line binary was not found at $bin" >&2; exit 1; }
+    # the archive's label: the system and, on a Mac, the architecture; an arm64 Docker build is named apart from the x64 one
+    label="$target"
+    case "$target" in
+      mac|macos)
+        case "${triple:-native}" in
+          aarch64-apple-darwin) label=mac-arm64 ;;
+          x86_64-apple-darwin) label=mac-x64 ;;
+          universal-apple-darwin) label=mac-universal ;;
+          *) case "$(uname -m)" in arm64|aarch64) label=mac-arm64 ;; *) label=mac-x64 ;; esac ;;
+        esac ;;
+      linux) [ "${PAMPAS_LINUX_ARCH:-}" != arm64 ] || label=linux-arm64 ;;
+    esac
+    package_cli "$bin" "$label" "$exe"
   fi
   echo "done: $dist"
 }

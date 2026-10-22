@@ -121,7 +121,7 @@
     set_key: ({ name, value }) => { if (!value.trim()) throw "no key entered"; keys[name] = "keychain"; return null; },
     delete_key: ({ name }) => { const had = keys[name] === "keychain"; if (had) delete keys[name]; return had; },
     list_settings: () => settingRows(),
-    set_setting: ({ name, value }) => { if (/_KEY$/.test(name)) throw `${name} looks like a secret; settings are stored in plain text. Use \`pampas key set ${name}\` instead`; settings[name] = value; return null; },
+    set_setting: ({ name, value }) => { if (/_KEY$/.test(name)) throw `${name} looks like a secret; settings are stored in plain text. Use \`pampas-cli key set ${name}\` instead`; settings[name] = value; return null; },
     delete_setting: ({ name }) => { const had = name in settings; delete settings[name]; return had; },
     usage: () => config.map((e) => ({ provider: e.name, group: e.kind === "apple_fm" ? null : group(e), used: e.kind === "apple_fm" ? 0 : used[group(e)] ?? 0, limit: e.daily_limit ?? null })),
     ask: async ({ request }) => {
@@ -130,7 +130,7 @@
       const chosen = config.filter((e) => {
         const on = (e.enabled !== false || request.enable.includes(e.name)) && !request.disable.includes(e.name);
         if (!on) return false;
-        if (keyStatus(e) === "missing") { warnings.push(`skipping provider: ${e.name}: no key: set ${e.api_key_env} or run \`pampas key set ${e.api_key_env}\``); return false; }
+        if (keyStatus(e) === "missing") { warnings.push(`skipping provider: ${e.name}: no key: set ${e.api_key_env} or run \`pampas-cli key set ${e.api_key_env}\``); return false; }
         if (e.daily_limit && (used[group(e)] ?? 0) >= e.daily_limit && !request.ignore_limits) { warnings.push(`skipping provider: ${e.name}: daily limit of ${e.daily_limit} requests reached (${used[group(e)]} used today, UTC)`); return false; }
         return true;
       });

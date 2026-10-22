@@ -7,7 +7,7 @@ use std::process::{Command, Stdio};
 #[test]
 fn a_closed_stdout_does_not_panic() {
     let config = concat!(env!("CARGO_MANIFEST_DIR"), "/examples/providers.json");
-    let mut child = Command::new(env!("CARGO_BIN_EXE_pampas"))
+    let mut child = Command::new(env!("CARGO_BIN_EXE_pampas-cli"))
         .args(["usage", "--config", config])
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())

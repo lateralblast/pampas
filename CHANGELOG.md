@@ -4,6 +4,13 @@ Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-10-23
+
+### Changed
+
+- The command line is now called `pampas-cli` (it was `pampas`): `pampas-cli "your prompt"`, `pampas-cli key set GROQ_API_KEY`, `pampas-cli init`, and so on. The usage text, the error messages that tell you what to type, and the README all use the new name. Unchanged: the app, the package and library (`pampas`), the config and state folders (`pampas`), the keychain service (`pampas`), and the `./pampas` wrapper script in a checkout. Anything that calls `pampas` on a PATH needs to call `pampas-cli`.
+- `./build.sh` packages the command line apart from the app's installer: `pampas-cli-<version>-linux.tar.gz` (`-linux-arm64` for the arm64 container), `pampas-cli-<version>-mac-<arm64|x64|universal>.tar.gz`, `pampas-cli-<version>-windows.zip`. Each holds a folder with just the binary (`pampas-cli`, `pampas-cli.exe` on Windows). It used to copy a bare binary named `pampas-<version>-<system>` into `dist/`.
+
 ## [0.5.1] - 2026-10-23
 
 ### Fixed

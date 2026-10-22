@@ -16,7 +16,7 @@ test("failures are explained in plain words with a next step", () => {
 });
 
 test("skipped sources are explained and name their fix", () => {
-  const key = explainSkip("skipping provider: groq: no key: set GROQ_API_KEY or run `pampas key set GROQ_API_KEY`");
+  const key = explainSkip("skipping provider: groq: no key: set GROQ_API_KEY or run `pampas-cli key set GROQ_API_KEY`");
   assert.equal(key?.provider, "groq");
   assert.equal(key?.plain.fix?.tab, "keys");
   const limit = explainSkip("skipping provider: freeai: daily limit of 30 requests reached (30 used today, UTC)");

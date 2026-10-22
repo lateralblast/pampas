@@ -1,6 +1,6 @@
 //! Non-secret values for `${NAME}` placeholders in a provider's `base_url` (an account id, a host),
 //! kept in `settings.json` beside the providers config. The environment variable of the same name
-//! wins over a stored value. Secrets belong in the keychain (`pampas key set`), not here.
+//! wins over a stored value. Secrets belong in the keychain (`pampas-cli key set`), not here.
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -26,7 +26,7 @@ pub fn check_name(name: &str) -> anyhow::Result<()> {
     let upper = name.to_ascii_uppercase();
     anyhow::ensure!(
         !["_KEY", "_TOKEN", "_SECRET", "_PASSWORD"].iter().any(|s| upper.ends_with(s)),
-        "{name} looks like a secret; settings are stored in plain text. Use `pampas key set {name}` instead"
+        "{name} looks like a secret; settings are stored in plain text. Use `pampas-cli key set {name}` instead"
     );
     Ok(())
 }
@@ -95,7 +95,7 @@ mod tests {
     #[test]
     fn secrets_and_bad_names_are_refused() {
         let mut s = Settings::default();
-        assert!(s.set("GROQ_API_KEY", "x").unwrap_err().to_string().contains("pampas key set"));
+        assert!(s.set("GROQ_API_KEY", "x").unwrap_err().to_string().contains("pampas-cli key set"));
         assert!(s.set("MY_TOKEN", "x").is_err());
         assert!(s.set("bad name", "x").is_err());
         assert!(s.set("1ABC", "x").is_err());

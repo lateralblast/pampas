@@ -141,7 +141,7 @@ def build(build_args, timeout):
         code = handle.read().strip()
     if code != "0":
         sys.exit("\nThe Windows build failed (exit code %s); see %s" % (code, LOG))
-    print("\nThe installer and pampas.exe are in %s" % os.path.join(OUT, "bundle"))
+    print("\nThe installer and pampas-cli.exe are in %s" % os.path.join(OUT, "bundle"))
 
 
 def main():

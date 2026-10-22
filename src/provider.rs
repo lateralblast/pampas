@@ -109,7 +109,7 @@ impl ProviderConfig {
     /// Fill in `${NAME}` placeholders in `base_url`. The error says which variable to set.
     pub fn expand_vars(&mut self, lookup: &dyn Fn(&str) -> Option<String>) -> anyhow::Result<()> {
         self.base_url = expand_vars(&self.base_url, lookup)
-            .map_err(|name| anyhow!("{}: base_url uses ${{{name}}}, which is not set: set the environment variable {name} or run `pampas setting set {name} <value>`", self.name))?;
+            .map_err(|name| anyhow!("{}: base_url uses ${{{name}}}, which is not set: set the environment variable {name} or run `pampas-cli setting set {name} <value>`", self.name))?;
         Ok(())
     }
 

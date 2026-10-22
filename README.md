@@ -2,7 +2,7 @@
 
 # pampas
 
-Version: 0.5.1
+Version: 0.5.2
 
 **pampas** is short for Parallel AI Multi-provider Prompt Aggregator & Synthesizer: a command-line tool and desktop app that send one prompt to several free AI services in parallel and merge the results.
 
@@ -29,7 +29,7 @@ Version: 0.5.1
 
 ## Quick start
 
-The command line needs only Rust. From a checkout, `./pampas` is a wrapper that builds and runs it (`cargo run --` does the same).
+The command line is called `pampas-cli` and needs only Rust to build. From a checkout, `./pampas` is a wrapper that builds and runs it (`cargo run --` does the same); once built or installed, type `pampas-cli` instead of `./pampas` in every example below.
 
 ```
 ./pampas init                    # write the starter list of free services to your config
@@ -38,7 +38,7 @@ The command line needs only Rust. From a checkout, `./pampas` is a wrapper that 
 ./pampas "your prompt"
 ```
 
-Get a key for each service you want (see [Getting API keys](#getting-api-keys)) and store it with `pampas key set` or an environment variable (see [API keys](#api-keys)). A provider with no key is skipped with a warning, so you can start with one. Each provider's answer is printed under a `## name` heading; failures go to stderr. Add `--merge` for one consolidated answer. For the desktop app, run `./pampas --gui` (see [GUI](#gui-in-development)).
+Get a key for each service you want (see [Getting API keys](#getting-api-keys)) and store it with `pampas-cli key set` or an environment variable (see [API keys](#api-keys)). A provider with no key is skipped with a warning, so you can start with one. Each provider's answer is printed under a `## name` heading; failures go to stderr. Add `--merge` for one consolidated answer. For the desktop app, run `./pampas --gui` (see [GUI](#gui-in-development)).
 
 ## Configuration
 
@@ -106,11 +106,11 @@ What was found when these were checked on 2026-10-23, and how far to trust each 
 | Ollama | None; your own hardware | n/a | n/a | none |
 | Apple Intelligence | None; on-device | n/a | n/a | not counted |
 
-**How `pampas` uses them.** It counts requests per UTC day and skips a provider at its `daily_limit` (see [Usage limits](#usage-limits)). It cannot count monthly caps (Cohere, Free.ai), so those use a daily figure of about a thirtieth of the month: 30 a day. It cannot count Cloudflare's Neurons, which depend on tokens rather than requests: a 100-token prompt with a 300-token answer costs about 24 Neurons on `gpt-oss-120b` (31,818 per million input tokens, 68,182 per million output), so roughly 400 such requests a day. For Groq, NVIDIA and Gemini no `daily_limit` is set until you have confirmed your own limits; to set one, add `"daily_limit": N` to the entry (and share a `usage_group` between entries that share an account).
+**How pampas uses them.** It counts requests per UTC day and skips a provider at its `daily_limit` (see [Usage limits](#usage-limits)). It cannot count monthly caps (Cohere, Free.ai), so those use a daily figure of about a thirtieth of the month: 30 a day. It cannot count Cloudflare's Neurons, which depend on tokens rather than requests: a 100-token prompt with a 300-token answer costs about 24 Neurons on `gpt-oss-120b` (31,818 per million input tokens, 68,182 per million output), so roughly 400 such requests a day. For Groq, NVIDIA and Gemini no `daily_limit` is set until you have confirmed your own limits; to set one, add `"daily_limit": N` to the entry (and share a `usage_group` between entries that share an account).
 
 ### Getting API keys
 
-Store each key with `pampas key set <NAME>` or export it as an environment variable; see [API keys](#api-keys). `pampas key types` lists the names your config uses.
+Store each key with `pampas-cli key set <NAME>` or export it as an environment variable; see [API keys](#api-keys). `pampas-cli key types` lists the names your config uses.
 
 | Service | Environment variable | Where to get it |
 |---|---|---|
@@ -151,18 +151,18 @@ Store each key with `pampas key set <NAME>` or export it as an environment varia
 - `-f, --format <text|markdown|md|json>`: output format, see [Output formats](#output-formats) (default `markdown`).
 - `-o, --output <path>`: write the result to this file instead of stdout, overwriting it. A `wrote <path>` note goes to stderr. If the file cannot be written, the result is printed to stdout instead and `pampas` exits with an error.
 - `--ignore-limits`: ignore every `daily_limit` for this run; requests are still counted.
-- `--usage-file <path>`: where request counts are kept (default `usage.json` in the state directory, see [File locations](#file-locations)). Also accepted by `pampas usage`.
-- `--config <path>`: providers config file (default `providers.json` in the config directory, see [File locations](#file-locations)). Also accepted by `pampas key list`.
+- `--usage-file <path>`: where request counts are kept (default `usage.json` in the state directory, see [File locations](#file-locations)). Also accepted by `pampas-cli usage`.
+- `--config <path>`: providers config file (default `providers.json` in the config directory, see [File locations](#file-locations)). Also accepted by `pampas-cli key list`.
 
-Options such as `--config` and `--usage-file` can come before or after a subcommand (`pampas --config <path> key list` and `pampas key list --config <path>` are the same). Options that only apply to a prompt run, such as `--merge`, are ignored with a subcommand. A prompt that is literally `key`, `usage`, `init` or `setting` must be written `pampas -- key`.
+Options such as `--config` and `--usage-file` can come before or after a subcommand (`pampas-cli --config <path> key list` and `pampas-cli key list --config <path>` are the same). Options that only apply to a prompt run, such as `--merge`, are ignored with a subcommand. A prompt that is literally `key`, `usage`, `init` or `setting` must be written `pampas-cli -- key`.
 
 ### Commands
 
-- `pampas init`: write the bundled example config to the config path (`--config`, default in the config directory); it never overwrites an existing file. Run it first, then edit the file. If you skip it, `pampas usage`, `pampas key list` and a prompt run offer to do it on a terminal when the default config is missing (`Create it from the bundled example? [y/N]`); with piped input, or with a `--config` path, they just fail with an error pointing at `pampas init`.
-- `pampas key set|delete|list|types`: manage stored keys; see [API keys](#api-keys).
-- `pampas setting set|delete|list`: manage the values behind `${NAME}` placeholders in `base_url`; see [Settings](#settings).
-- `pampas usage`: today's request counts; see [Usage limits](#usage-limits).
-- `pampas migrate`: on macOS, move your files from the old locations to the current ones (see [File locations](#file-locations)); elsewhere it reports nothing to migrate.
+- `pampas-cli init`: write the bundled example config to the config path (`--config`, default in the config directory); it never overwrites an existing file. Run it first, then edit the file. If you skip it, `pampas-cli usage`, `pampas-cli key list` and a prompt run offer to do it on a terminal when the default config is missing (`Create it from the bundled example? [y/N]`); with piped input, or with a `--config` path, they just fail with an error pointing at `pampas-cli init`.
+- `pampas-cli key set|delete|list|types`: manage stored keys; see [API keys](#api-keys).
+- `pampas-cli setting set|delete|list`: manage the values behind `${NAME}` placeholders in `base_url`; see [Settings](#settings).
+- `pampas-cli usage`: today's request counts; see [Usage limits](#usage-limits).
+- `pampas-cli migrate`: on macOS, move your files from the old locations to the current ones (see [File locations](#file-locations)); elsewhere it reports nothing to migrate.
 
 `key list`, `key types`, `setting list` and `usage` print an aligned table with a header row on a terminal, and bare tab-separated lines (no header) when piped, so scripts can parse them.
 
@@ -192,7 +192,7 @@ With `--merge`, markdown and text show the merged answer first (as `merged (by <
 
 ## Merging answers
 
-By default each provider's answer is printed under its name. With `--merge`, `pampas` collects the answers and asks one provider, the synthesizer, to write a single answer: points all the answers agree on stated once, disagreements called out with the models that differ, and nothing added that no answer said. How the merged answer is printed is described under [Output formats](#output-formats).
+By default each provider's answer is printed under its name. With `--merge`, pampas collects the answers and asks one provider, the synthesizer, to write a single answer: points all the answers agree on stated once, disagreements called out with the models that differ, and nothing added that no answer said. How the merged answer is printed is described under [Output formats](#output-formats).
 
 The synthesizer is `--synthesizer <name>` if given, else the first running entry with `"synthesizer": true`, else the first running provider. It must be a running provider (enabled, with a key, or with its Apple model available), and it also answers the prompt like the others.
 
@@ -200,15 +200,15 @@ Merging costs one extra request to the synthesizer, which matters on free tiers,
 
 ## Usage limits
 
-Free tiers cap requests per day, and going over can get a key throttled or blocked. `pampas` therefore counts every request it makes to an OpenAI-compatible provider, per UTC day (the day most services reset on), in the file given by `--usage-file`. Apple Intelligence entries are local and not counted.
+Free tiers cap requests per day, and going over can get a key throttled or blocked. pampas therefore counts every request it makes to an OpenAI-compatible provider, per UTC day (the day most services reset on), in the file given by `--usage-file`. Apple Intelligence entries are local and not counted.
 
 - **What counts:** each request to the chat endpoint, counted before it is sent, so a failed request (a `429`, say) still counts. A `fallback` model attempt and the `--merge` synthesis call each count as one request. Listing `/models` for a fallback does not.
 - **Limits:** set `"daily_limit": N` on an entry. Once the count reaches `N` the provider is skipped with a warning at startup, and a request that would exceed it mid-run (a fallback, or the synthesis call) is refused rather than sent. At 80% of the limit each request prints a `used of limit` note on stderr. `--ignore-limits` turns this off for a run.
 - **Sharing:** entries that draw on one account's quota can share a counter with the same `"usage_group"`. Each entry still checks the shared count against its own `daily_limit`. The example config groups the two Groq entries.
-- **Viewing:** `pampas usage` prints a table of each entry's name, usage group and `used/limit` (`-` if there is no limit). For example, after a few requests:
+- **Viewing:** `pampas-cli usage` prints a table of each entry's name, usage group and `used/limit` (`-` if there is no limit). For example, after a few requests:
 
 ```
-$ pampas usage
+$ pampas-cli usage
 PROVIDER            GROUP          USED/LIMIT
 groq                groq           12/-
 groq-120b           groq           12/-
@@ -221,7 +221,7 @@ apple               -              local, not counted
 ```
 
   The two Groq entries show the same count because they share a usage group. The list is shortened here; it has one row per config entry.
-- **Limits of the counter:** it only knows the requests `pampas` made on this machine, so use from other tools or machines is not seen, and the file is not locked, so two `pampas` runs at the same moment can lose a count. Limits are daily; monthly caps are approximated (see [Free-tier limits](#free-tier-limits)). An unreadable counts file is moved to `usage.json.corrupt` with a warning and counting starts again from zero.
+- **Limits of the counter:** it only knows the requests pampas made on this machine, so use from other tools or machines is not seen, and the file is not locked, so two `pampas` runs at the same moment can lose a count. Limits are daily; monthly caps are approximated (see [Free-tier limits](#free-tier-limits)). An unreadable counts file is moved to `usage.json.corrupt` with a warning and counting starts again from zero.
 
 ## API keys
 
@@ -232,27 +232,27 @@ Each provider's `api_key_env` is the name of its key. pampas looks for the key i
 
 Keys never go in the providers config file.
 
-- `pampas key set <NAME> [--stdin]`: store a key, e.g. `pampas key set GROQ_API_KEY`. The key is typed at a hidden prompt, so it never appears on screen or in shell history. With `--stdin` the key is read from standard input instead, for scripts and password managers: `pass show groq | pampas key set GROQ_API_KEY --stdin`, or `pampas key set GROQ_API_KEY --stdin < keyfile`. There is deliberately no way to pass the key as an argument: it would sit in shell history, which a program cannot edit, and in `ps` output while the command runs. If you do type a key into the shell by mistake, delete the history line yourself (`history -d`/`fc`, or edit `~/.zsh_history`) and treat the key as exposed.
+- `pampas-cli key set <NAME> [--stdin]`: store a key, e.g. `pampas-cli key set GROQ_API_KEY`. The key is typed at a hidden prompt, so it never appears on screen or in shell history. With `--stdin` the key is read from standard input instead, for scripts and password managers: `pass show groq | pampas-cli key set GROQ_API_KEY --stdin`, or `pampas-cli key set GROQ_API_KEY --stdin < keyfile`. There is deliberately no way to pass the key as an argument: it would sit in shell history, which a program cannot edit, and in `ps` output while the command runs. If you do type a key into the shell by mistake, delete the history line yourself (`history -d`/`fc`, or edit `~/.zsh_history`) and treat the key as exposed.
 
   ```
-  $ pampas key set GROQ_API_KEY
+  $ pampas-cli key set GROQ_API_KEY
   GROQ_API_KEY:                      <- typed at a hidden prompt, nothing is echoed
   stored GROQ_API_KEY in the OS keychain
 
-  $ pass show groq | pampas key set GROQ_API_KEY --stdin
+  $ pass show groq | pampas-cli key set GROQ_API_KEY --stdin
   stored GROQ_API_KEY in the OS keychain
 
-  $ pampas key set GROQ_API_KEY --stdin < ~/groq.key
+  $ pampas-cli key set GROQ_API_KEY --stdin < ~/groq.key
   stored GROQ_API_KEY in the OS keychain
   ```
 
   Trailing whitespace and the final newline are trimmed, and empty input is an error (`no key entered`). Delete a key file once it is stored.
-- `pampas key delete <NAME>`: remove a stored key.
-- `pampas key types [--config <path>]`: a table (`KEY`, `PROVIDERS`) of the key names the config uses (the names to give `key set`), with the providers that use it, comma-separated. Providers with no key are left out. With no config file at the default path it lists the keys of the bundled example config instead and says so on stderr.
-- `pampas key list [--config <path>]`: a table (`PROVIDER`, `KEY`, `SOURCE`) with one row per configured provider: where its key comes from (`environment variable`, `OS keychain`, `missing`, `no key needed`, or `error: ...` if the keychain itself failed). Keys themselves are never printed.
+- `pampas-cli key delete <NAME>`: remove a stored key.
+- `pampas-cli key types [--config <path>]`: a table (`KEY`, `PROVIDERS`) of the key names the config uses (the names to give `key set`), with the providers that use it, comma-separated. Providers with no key are left out. With no config file at the default path it lists the keys of the bundled example config instead and says so on stderr.
+- `pampas-cli key list [--config <path>]`: a table (`PROVIDER`, `KEY`, `SOURCE`) with one row per configured provider: where its key comes from (`environment variable`, `OS keychain`, `missing`, `no key needed`, or `error: ...` if the keychain itself failed). Keys themselves are never printed.
 
   ```
-  $ pampas key list
+  $ pampas-cli key list
   PROVIDER            KEY                 SOURCE
   groq                GROQ_API_KEY        environment variable
   openrouter          OPENROUTER_API_KEY  missing
@@ -261,7 +261,7 @@ Keys never go in the providers config file.
   apple               -                   no key needed
   ```
 
-  `missing` means neither the environment variable nor the keychain has the key: run `pampas key set <KEY>`. The list is shortened here; it has one row per config entry.
+  `missing` means neither the environment variable nor the keychain has the key: run `pampas-cli key set <KEY>`. The list is shortened here; it has one row per config entry.
 
 On a machine with no Secret Service (a headless Linux server, a container, CI), the keychain is unavailable: use environment variables there. A missing keychain only matters for providers whose environment variable is unset.
 
@@ -274,12 +274,12 @@ Some values are not secrets but still differ per user: a Cloudflare account id, 
 
 A provider whose placeholder is set in neither place is skipped with a message naming it, like a missing key.
 
-- `pampas setting set <NAME> [VALUE]`: store a value, e.g. `pampas setting set CLOUDFLARE_ACCOUNT_ID 0123456789abcdef0123456789abcdef`. Leave the value out and pampas asks for it at a prompt (`CLOUDFLARE_ACCOUNT_ID: `); the input is shown, since settings are not secrets. With no value and no terminal (piped input) it is an error. It refuses names ending in `_KEY`, `_TOKEN`, `_SECRET` or `_PASSWORD`: the file is plain text, so keep secrets in the keychain with `pampas key set`.
-- `pampas setting delete <NAME>`: remove a stored value.
-- `pampas setting list [--config <path>]`: a table of every placeholder the config uses plus anything stored, with its value and where it comes from.
+- `pampas-cli setting set <NAME> [VALUE]`: store a value, e.g. `pampas-cli setting set CLOUDFLARE_ACCOUNT_ID 0123456789abcdef0123456789abcdef`. Leave the value out and pampas asks for it at a prompt (`CLOUDFLARE_ACCOUNT_ID: `); the input is shown, since settings are not secrets. With no value and no terminal (piped input) it is an error. It refuses names ending in `_KEY`, `_TOKEN`, `_SECRET` or `_PASSWORD`: the file is plain text, so keep secrets in the keychain with `pampas-cli key set`.
+- `pampas-cli setting delete <NAME>`: remove a stored value.
+- `pampas-cli setting list [--config <path>]`: a table of every placeholder the config uses plus anything stored, with its value and where it comes from.
 
 ```
-$ pampas setting list
+$ pampas-cli setting list
 NAME                   VALUE                             SOURCE
 CLOUDFLARE_ACCOUNT_ID  0123456789abcdef0123456789abcdef  settings file
 OLLAMA_REMOTE_HOST     -                                 not set
@@ -299,7 +299,7 @@ pampas keeps four files: `providers.json` (the providers), `settings.json` (the 
 
 On Linux and macOS an `XDG_*` variable that is set overrides the default, which is handy for a scratch run. `--config` and `--usage-file` override everything, and `settings.json` always sits beside the providers config.
 
-**Upgrading on macOS.** Versions before 0.4.3 used the Linux locations (`~/.config/pampas` and `~/.local/state/pampas`) on macOS. Those files are still used when nothing exists at the new location, with a note on stderr, until you run `pampas migrate`, which moves them (it never overwrites a file that already exists at the new location).
+**Upgrading on macOS.** Versions before 0.4.3 used the Linux locations (`~/.config/pampas` and `~/.local/state/pampas`) on macOS. Those files are still used when nothing exists at the new location, with a note on stderr, until you run `pampas-cli migrate`, which moves them (it never overwrites a file that already exists at the new location).
 
 ## Ollama
 
@@ -314,7 +314,7 @@ On Linux and macOS an `XDG_*` variable that is set overrides the default, which 
 { "name": "ollama", "base_url": "http://localhost:11434/v1", "model": "qwen2.5:7b" }
 ```
 
-3. Run it: `pampas "your prompt"`. If the entry has `"enabled": false`, add `--enable ollama`.
+3. Run it: `pampas-cli "your prompt"`. If the entry has `"enabled": false`, add `--enable ollama`.
 
 `model` must be exactly a name from `ollama list`, tag included (`qwen3:14b`, not `qwen3`).
 
@@ -349,18 +349,18 @@ The three `cloudflare-*` example entries need two things from your Cloudflare ac
 3. **Store them.** The token is a secret, so it goes in the keychain; the account id is a setting:
 
 ```
-pampas key set CLOUDFLARE_API_KEY
-pampas setting set CLOUDFLARE_ACCOUNT_ID      # asks for the id; or add it: ... CLOUDFLARE_ACCOUNT_ID <id>
+pampas-cli key set CLOUDFLARE_API_KEY
+pampas-cli setting set CLOUDFLARE_ACCOUNT_ID      # asks for the id; or add it: ... CLOUDFLARE_ACCOUNT_ID <id>
 ```
 
    Either can be an environment variable instead (`CLOUDFLARE_API_KEY`, `CLOUDFLARE_ACCOUNT_ID`); the environment wins. The entries' `base_url` is `https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/ai/v1`, so they are skipped with a message until the account id is set (see [Settings](#settings)).
-4. **Check.** `pampas key list` should show `CLOUDFLARE_API_KEY` found, and `pampas setting list` should show `CLOUDFLARE_ACCOUNT_ID` set.
+4. **Check.** `pampas-cli key list` should show `CLOUDFLARE_API_KEY` found, and `pampas-cli setting list` should show `CLOUDFLARE_ACCOUNT_ID` set.
 
 Notes: the free plan is limited in Neurons per day, not requests; see [Free-tier limits](#free-tier-limits). The three entries share a `cloudflare` usage group, and `@cf/zai-org/glm-5.3-flash` returns `403` on the free plan. The account-id locations above come from memory of the dashboard, not from a fresh look.
 
 ## Apple Intelligence
 
-On a Mac with Apple Intelligence (macOS 26 or later, Apple silicon), `pampas` can also ask Apple's on-device model. It is free, offline and needs no key. Apple only exposes it to Swift, so a small helper, `helpers/apple-fm.swift`, bridges it. Build it once and put it on your `PATH`:
+On a Mac with Apple Intelligence (macOS 26 or later, Apple silicon), pampas can also ask Apple's on-device model. It is free, offline and needs no key. Apple only exposes it to Swift, so a small helper, `helpers/apple-fm.swift`, bridges it. Build it once and put it on your `PATH`:
 
 ```
 swiftc -O helpers/apple-fm.swift -o ~/.local/bin/pampas-apple-fm
@@ -372,7 +372,7 @@ Then add an entry with `"kind": "apple_fm"` (the example config has one):
 { "name": "apple", "kind": "apple_fm" }
 ```
 
-`command` is optional (default `pampas-apple-fm`, looked up on `PATH`; a value with a slash is used as a path). Entries without `kind` are OpenAI-compatible as before. At startup `pampas` runs `pampas-apple-fm --check`; if the helper is missing or the model is unavailable (Apple Intelligence off, unsupported Mac, model still downloading), the entry is skipped with a warning and the other providers still run, so the same config works on any machine. `pampas key list` shows `no key needed` for these entries.
+`command` is optional (default `pampas-apple-fm`, looked up on `PATH`; a value with a slash is used as a path). Entries without `kind` are OpenAI-compatible as before. At startup `pampas` runs `pampas-apple-fm --check`; if the helper is missing or the model is unavailable (Apple Intelligence off, unsupported Mac, model still downloading), the entry is skipped with a warning and the other providers still run, so the same config works on any machine. `pampas-cli key list` shows `no key needed` for these entries.
 
 ## GUI (in development)
 
@@ -440,17 +440,19 @@ The app icon is `pampas.png` in the repository root (the tiger icon credited und
 
 ## Building installers
 
-`./build.sh` builds the desktop app's installer and the `pampas` command-line binary into `dist/` (not committed). It builds the interface first, so it needs [Node](https://nodejs.org) 20 or later, the Rust toolchain and `tauri-cli` (`cargo install tauri-cli --version '^2'`). It never commits, tags or publishes anything. It is adapted from the build process of the author's other Tauri app, bobcat.
+`./build.sh` builds the desktop app's installer and, separately, the command line `pampas-cli` as an archive into `dist/` (not committed). It builds the interface first, so it needs [Node](https://nodejs.org) 20 or later, the Rust toolchain and `tauri-cli` (`cargo install tauri-cli --version '^2'`). It never commits, tags or publishes anything. It is adapted from the build process of the author's other Tauri app, bobcat.
 
 | Target | Command | Where it builds | Produces |
 |---|---|---|---|
-| Linux | `./build.sh --target linux [--package deb\|rpm\|appimage\|all]` | On a Linux host, natively. The default package is the distribution's own (`deb` on Debian and Ubuntu, `rpm` on Red Hat family systems, else `appimage`); `--target deb` and `--target rpm` are shortcuts; `rpm` needs `rpmbuild`. | `pampas_<version>_amd64.deb`, `pampas-<version>-1.x86_64.rpm`, `.AppImage`, and `pampas-<version>-linux` |
+| Linux | `./build.sh --target linux [--package deb\|rpm\|appimage\|all]` | On a Linux host, natively. The default package is the distribution's own (`deb` on Debian and Ubuntu, `rpm` on Red Hat family systems, else `appimage`); `--target deb` and `--target rpm` are shortcuts; `rpm` needs `rpmbuild`. | `pampas_<version>_amd64.deb`, `pampas-<version>-1.x86_64.rpm`, `.AppImage`, and `pampas-cli-<version>-linux.tar.gz` |
 | Linux, in a container | `./build.sh --target linux --docker [--arch x64\|arm64]` | In an Ubuntu 24.04 Docker container (`docker/linux`); the default on a host that is not Linux. Built against Ubuntu 24.04's web view libraries, so the package also installs on newer systems. | the same files |
-| Windows, in a VM | `./build.sh --target windows` | On a Linux host with Docker and `/dev/kvm`: in a Windows 11 virtual machine (see below). On Windows itself (for example in Git Bash) it builds natively. | `pampas_<version>_x64-setup.exe` (NSIS) and `pampas-<version>-windows.exe` |
+| Windows, in a VM | `./build.sh --target windows` | On a Linux host with Docker and `/dev/kvm`: in a Windows 11 virtual machine (see below). On Windows itself (for example in Git Bash) it builds natively. | `pampas_<version>_x64-setup.exe` (NSIS) and `pampas-cli-<version>-windows.zip` |
 | Windows, cross build | `./build.sh --target windows --docker` | In a Linux container with MinGW (`docker/windows`, target `x86_64-pc-windows-gnu`); the default on a Mac. | the same files |
-| macOS | `./build.sh --target mac [--arch arm64\|x64\|universal]` | On a Mac only, natively (needs the Xcode command line tools). | `pampas_<version>_<arch>.dmg` and `pampas-<version>-mac` |
+| macOS | `./build.sh --target mac [--arch arm64\|x64\|universal]` | On a Mac only, natively (needs the Xcode command line tools). | `pampas_<version>_<arch>.dmg` and `pampas-cli-<version>-mac-<arm64|x64|universal>.tar.gz` |
 
-Add `--no-cli` to skip the command-line binary. An installer can only be built where its web view is available, except through the VM and container routes above.
+Add `--no-cli` to skip the command line.
+
+The two are packaged apart on purpose. The installer is the desktop app only (the `.deb` installs `pampas-gui` and a menu entry, nothing named `pampas` or `pampas-cli`). The command line is an archive, `pampas-cli-<version>-<system>.tar.gz` (Linux, macOS) or `.zip` (Windows), holding a folder with the one binary, `pampas-cli` (`pampas-cli.exe` on Windows): unpack it and put the binary on your `PATH`, for example `tar -xzf pampas-cli-*-linux.tar.gz && install -m755 pampas-cli-*/pampas-cli ~/.local/bin/`. Both use the same config, keys, settings and usage files. An installer can only be built where its web view is available, except through the VM and container routes above.
 
 ### The Windows VM
 
@@ -466,10 +468,10 @@ If a build never starts (`windows/out/build.request` stays and no `build.log` ap
 
 | Route | Result |
 |---|---|
-| Linux, native | `.deb` and `.rpm` and the command-line binary built on Ubuntu; the `.deb` metadata and files were inspected, but neither package was installed and run |
-| Linux, in a container | `.deb` and command-line binary built in the Ubuntu 24.04 image |
-| Windows, in the VM | installer and `pampas.exe` built with MSVC, three times, including a cold start of the stopped VM that the script started and stopped itself |
-| Windows, cross build | installer and `pampas.exe` built with MinGW in a container |
+| Linux, native | `.deb` and `.rpm` and the command-line archive built on Ubuntu; the `.deb` metadata and files were inspected, but neither package was installed and run |
+| Linux, in a container | `.deb` and command-line archive built in the Ubuntu 24.04 image |
+| Windows, in the VM | installer and `pampas-cli.exe` built with MSVC, three times, including a cold start of the stopped VM that the script started and stopped itself |
+| Windows, cross build | installer and `pampas-cli.exe` built with MinGW in a container |
 | macOS | not run: written from bobcat's process |
 
 Not tested yet: running either Windows installer, or the app, on a Windows machine; the macOS build; the AppImage package; the arm64 container build. See `TODO.md`.
@@ -490,7 +492,7 @@ On a Mac, install the Xcode command line tools, Rust (`rustup`), Node and `tauri
 | `HOME` | pampas | Linux and macOS: the user's home, used for the default locations. |
 | `APPDATA`, `LOCALAPPDATA`, `USERPROFILE` | pampas | Windows: the config directory is `%APPDATA%\pampas` and the usage file is in `%LOCALAPPDATA%\pampas`; `USERPROFILE` is the fallback if they are unset. |
 
-Variables used as `${NAME}` placeholders in a `base_url` are not secrets and are not looked up in the keychain; if the variable is unset, the stored value from `pampas setting` is used (see [Settings](#settings)). `OLLAMA_HOST` is read by the Ollama server, not by pampas.
+Variables used as `${NAME}` placeholders in a `base_url` are not secrets and are not looked up in the keychain; if the variable is unset, the stored value from `pampas-cli setting` is used (see [Settings](#settings)). `OLLAMA_HOST` is read by the Ollama server, not by pampas.
 
 ## Platform status
 

@@ -362,7 +362,7 @@ export function mountAsk(root: HTMLElement, host: AskHost): void {
     if (needsOnboarding()) onboardingSlot.append(renderOnboarding(host.go, host.error));
     clear(banner);
     if (state.locations?.legacy) {
-      banner.append(h("div", { class: "notice" }, h("p", null, "Your files are in the older location. Run `pampas migrate` in a terminal to move them to this system's usual place.")));
+      banner.append(h("div", { class: "notice" }, h("p", null, "Your files are in the older location. Run `pampas-cli migrate` in a terminal to move them to this system's usual place.")));
     }
     if (state.configError) {
       banner.append(h("div", { class: "notice error", role: "alert" }, h("p", null, "The list of sources could not be read."), h("pre", null, state.configError), h("button", { type: "button", class: "linklike", onclick: () => host.go("sources") }, "Open Sources")));

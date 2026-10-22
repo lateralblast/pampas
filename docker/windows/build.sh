@@ -1,6 +1,6 @@
 #!/bin/sh
 # Runs inside the docker/windows image (started by `./build.sh --target windows --docker`): builds the
-# NSIS installer and pampas.exe for x86_64-pc-windows-gnu into /src/windows/out/cross.
+# NSIS installer and pampas-cli.exe for x86_64-pc-windows-gnu into /src/windows/out/cross.
 set -eu
 T=x86_64-pc-windows-gnu
 out=/src/windows/out/cross
@@ -17,5 +17,5 @@ cp /src/target/$T/release/bundle/nsis/*-setup.exe "$out/"
 if [ "${1:-}" != --no-cli ]; then
   cd /src
   cargo build --release -p pampas --target $T
-  cp target/$T/release/pampas.exe "$out/"
+  cp target/$T/release/pampas-cli.exe "$out/"
 fi

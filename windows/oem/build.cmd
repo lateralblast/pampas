@@ -53,5 +53,5 @@ if "%BUILDRC%"=="0" (
 )
 rem plain copy into a directory that exists: xcopy asked "file or directory?" for a single file and waited for ever
 if "%BUILDRC%"=="0" mkdir "%SHARE%\out\bundle\cli" 2>nul
-if "%BUILDRC%"=="0" copy /Y %WORK%\target\release\pampas.exe "%SHARE%\out\bundle\cli\" >> "%LOG%" 2>&1
+if "%BUILDRC%"=="0" copy /Y %WORK%\target\release\pampas-cli.exe "%SHARE%\out\bundle\cli\" >> "%LOG%" 2>&1
 >"%SHARE%\out\build.done" echo %BUILDRC%

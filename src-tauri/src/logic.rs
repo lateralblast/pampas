@@ -29,7 +29,7 @@ pub struct Locations {
     /// Where past sessions are kept.
     pub history: PathBuf,
     pub config_exists: bool,
-    /// The old macOS locations are in use until `pampas migrate` is run.
+    /// The old macOS locations are in use until `pampas-cli migrate` is run.
     pub legacy: bool,
 }
 

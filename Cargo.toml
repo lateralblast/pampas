@@ -4,9 +4,13 @@ resolver = "3"
 
 [package]
 name = "pampas"
-version = "0.5.1"
+version = "0.5.2"
 description = "Parallel AI Multi-provider Prompt Aggregator & Synthesizer"
 edition = "2024"
+
+[[bin]]
+name = "pampas-cli"
+path = "src/main.rs"
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2.191"

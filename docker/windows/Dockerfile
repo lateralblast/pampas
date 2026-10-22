@@ -1,5 +1,5 @@
 # Build image for `./build.sh --target windows --docker`: cross-compiles the Windows installer and
-# pampas.exe (x86_64-pc-windows-gnu, MinGW) in a Linux container, so a Mac can produce them.
+# pampas-cli.exe (x86_64-pc-windows-gnu, MinGW) in a Linux container, so a Mac can produce them.
 # Nothing here is Windows software; run it natively (no --platform) on both Intel and Apple Silicon.
 FROM ubuntu:24.04
 ENV DEBIAN_FRONTEND=noninteractive

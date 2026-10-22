@@ -28,7 +28,7 @@ pub fn load_config(path: &Path) -> anyhow::Result<Vec<ProviderEntry>> {
         Ok(text) => text,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
             anyhow::bail!(
-                "{} does not exist: run `pampas init` to create it from the bundled example, or pass --config",
+                "{} does not exist: run `pampas-cli init` to create it from the bundled example, or pass --config",
                 path.display()
             )
         }
@@ -57,7 +57,7 @@ pub fn find_key(cfg: &ProviderConfig, store: &dyn KeyStore) -> anyhow::Result<Op
     let env = std::env::var(name).ok();
     resolve(name, env, store)
         .with_context(|| format!("{}: looking up {name}", cfg.name))?
-        .with_context(|| format!("{}: no key: set {name} or run `pampas key set {name}`", cfg.name))
+        .with_context(|| format!("{}: no key: set {name} or run `pampas-cli key set {name}`", cfg.name))
         .map(Some)
 }
 
@@ -104,7 +104,7 @@ pub fn key_rows(entries: &[ProviderEntry], store: &dyn KeyStore) -> Vec<KeyRow> 
                     Ok(None) => KeyStatus::NotNeeded,
                     Ok(Some((_, Source::Env))) => KeyStatus::Env,
                     Ok(Some((_, Source::Keychain))) => KeyStatus::Keychain,
-                    // A missing key is the common case and the fix is `pampas key set`; only say more
+                    // A missing key is the common case and the fix is `pampas-cli key set`; only say more
                     // when the keychain itself failed.
                     Err(e) if e.to_string().contains(": no key:") => KeyStatus::Missing,
                     Err(e) => KeyStatus::Error(e.root_cause().to_string()),

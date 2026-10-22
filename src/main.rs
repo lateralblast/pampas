@@ -16,7 +16,7 @@ use pampas::{output, paths, settings};
 
 #[derive(Parser)]
 #[command(
-    name = "pampas",
+    name = "pampas-cli",
     version,
     about = "Parallel AI Multi-provider Prompt Aggregator & Synthesizer: query several free AI services in parallel and merge the results"
 )]
@@ -95,7 +95,7 @@ enum Command {
 
 #[derive(Subcommand)]
 enum SettingAction {
-    /// Store a value, e.g. `pampas setting set CLOUDFLARE_ACCOUNT_ID abc123`; an environment variable of the same name wins
+    /// Store a value, e.g. `pampas-cli setting set CLOUDFLARE_ACCOUNT_ID abc123`; an environment variable of the same name wins
     Set {
         name: String,
         /// The value; asked for at a prompt if left out
@@ -112,7 +112,7 @@ enum KeyAction {
     /// Store a key, read from a hidden prompt; NAME is the provider's `api_key_env`, e.g. GROQ_API_KEY
     Set {
         name: String,
-        /// Read the key from standard input instead of a prompt, e.g. `pass show groq | pampas key set GROQ_API_KEY --stdin`
+        /// Read the key from standard input instead of a prompt, e.g. `pass show groq | pampas-cli key set GROQ_API_KEY --stdin`
         #[arg(long)]
         stdin: bool,
     },
@@ -125,11 +125,11 @@ enum KeyAction {
 }
 
 /// The default providers config path. On macOS this may be the old location, with a hint about
-/// `pampas migrate`.
+/// `pampas-cli migrate`.
 fn default_config_path() -> anyhow::Result<PathBuf> {
     let found = paths::config_file(paths::Os::current(), &paths::real_env, &|p: &Path| p.exists())?;
     if found.legacy {
-        eprintln!("using {} (the old location); run `pampas migrate` to move your files", found.path.display());
+        eprintln!("using {} (the old location); run `pampas-cli migrate` to move your files", found.path.display());
     }
     Ok(found.path)
 }
@@ -138,7 +138,7 @@ fn default_config_path() -> anyhow::Result<PathBuf> {
 fn default_usage_path() -> anyhow::Result<PathBuf> {
     let found = paths::usage_file(paths::Os::current(), &paths::real_env, &|p: &Path| p.exists())?;
     if found.legacy {
-        eprintln!("using {} (the old location); run `pampas migrate` to move your files", found.path.display());
+        eprintln!("using {} (the old location); run `pampas-cli migrate` to move your files", found.path.display());
     }
     Ok(found.path)
 }
@@ -291,8 +291,8 @@ fn config_path_or_offer(config: Option<PathBuf>) -> anyhow::Result<PathBuf> {
 fn write_example_and_explain(path: &Path) -> anyhow::Result<()> {
     write_example_config(path)?;
     println!("wrote {}", path.display());
-    println!("edit it: set CLOUDFLARE_ACCOUNT_ID (Cloudflare) and OLLAMA_REMOTE_HOST with `pampas setting set <NAME> <value>` (or as environment variables), and remove providers you do not use");
-    println!("then store keys with `pampas key set <NAME>`; `pampas key types` lists the names");
+    println!("edit it: set CLOUDFLARE_ACCOUNT_ID (Cloudflare) and OLLAMA_REMOTE_HOST with `pampas-cli setting set <NAME> <value>` (or as environment variables), and remove providers you do not use");
+    println!("then store keys with `pampas-cli key set <NAME>`; `pampas-cli key types` lists the names");
     Ok(())
 }
 
@@ -300,7 +300,7 @@ fn write_example_and_explain(path: &Path) -> anyhow::Result<()> {
 fn prompt_value(name: &str) -> anyhow::Result<String> {
     anyhow::ensure!(
         std::io::stdin().is_terminal(),
-        "no value given for {name}: pass it as an argument (`pampas setting set {name} <value>`) or run this on a terminal to be asked"
+        "no value given for {name}: pass it as an argument (`pampas-cli setting set {name} <value>`) or run this on a terminal to be asked"
     );
     eprint!("{name}: ");
     let mut line = String::new();
@@ -369,7 +369,7 @@ fn run_key(action: KeyAction, config: Option<PathBuf>) -> anyhow::Result<()> {
     Ok(())
 }
 
-/// Rust ignores SIGPIPE, so printing into a pipe that has closed (`pampas usage | head -1`) panics.
+/// Rust ignores SIGPIPE, so printing into a pipe that has closed (`pampas-cli usage | head -1`) panics.
 /// Restore the default so the process ends quietly, as other command-line tools do.
 fn restore_sigpipe() {
     #[cfg(unix)]
@@ -391,7 +391,7 @@ async fn main() -> anyhow::Result<()> {
         Some(Command::Usage) => return run_usage(cli.config, cli.usage_file),
         None => {}
     }
-    let prompt = cli.prompt.context("a prompt is required: pampas \"your prompt\"")?;
+    let prompt = cli.prompt.context("a prompt is required: pampas-cli \"your prompt\"")?;
     let path = config_path_or_offer(cli.config)?;
     let client = reqwest::Client::new();
 
@@ -454,15 +454,15 @@ mod tests {
     #[test]
     fn options_may_come_before_or_after_a_subcommand() {
         for args in [
-            vec!["pampas", "--config", "c.json", "key", "list"],
-            vec!["pampas", "key", "list", "--config", "c.json"],
-            vec!["pampas", "--usage-file", "u.json", "--config", "c.json", "usage"],
+            vec!["pampas-cli", "--config", "c.json", "key", "list"],
+            vec!["pampas-cli", "key", "list", "--config", "c.json"],
+            vec!["pampas-cli", "--usage-file", "u.json", "--config", "c.json", "usage"],
         ] {
             let cli = Cli::try_parse_from(&args).unwrap_or_else(|e| panic!("{args:?}: {e}"));
             assert!(cli.command.is_some() && cli.prompt.is_none(), "{args:?}");
             assert_eq!(cli.config, Some(PathBuf::from("c.json")).filter(|_| args.contains(&"--config")));
         }
-        let cli = Cli::try_parse_from(["pampas", "--config", "c.json", "hello there"]).unwrap();
+        let cli = Cli::try_parse_from(["pampas-cli", "--config", "c.json", "hello there"]).unwrap();
         assert_eq!(cli.prompt.as_deref(), Some("hello there"));
     }
 

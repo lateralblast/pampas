@@ -4,7 +4,7 @@ Status: `[ ]` open, `[~]` in progress, `[x]` done.
 
 ## Open
 
-- [ ] Run the Windows installers on a real Windows machine (the VM-built MSVC one and the MinGW one), and the app and `pampas.exe` in them: the keychain (Credential Manager), file locations under `%APPDATA%`, the save dialog, the WebView2 runtime on Windows 10. Nothing built for Windows has been run on Windows.
+- [ ] Run the Windows installers on a real Windows machine (the VM-built MSVC one and the MinGW one), and the app and `pampas-cli.exe` in them: the keychain (Credential Manager), file locations under `%APPDATA%`, the save dialog, the WebView2 runtime on Windows 10. Nothing built for Windows has been run on Windows.
 - [ ] Try the macOS build on a Mac: `./build.sh --target mac` (and `--arch arm64|x64|universal`), the ad hoc signature, the keychain, the local-network permission for a LAN Ollama server, and Gatekeeper on first open. Written from bobcat's process but never run.
 - [ ] Try the Linux AppImage (`--package appimage` or `all`) and the arm64 container build (`--docker --arch arm64`), and install the built `.deb` and `.rpm` on clean machines.
 - [ ] Windows VM: the first install stopped after the Rust step (as bobcat's did) and the later tools were installed by running `setup.cmd` through the watcher; the cause is unknown (the log shows nothing between Rust and the end). A fresh install now recovers on its first build, but find out why. Also `windows/oem/refresh.cmd` does not always restart the watcher, and the first request after a restart can take minutes to be noticed.

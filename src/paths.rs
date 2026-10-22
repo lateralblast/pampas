@@ -3,7 +3,7 @@
 //! - Linux: config and settings in `$XDG_CONFIG_HOME` or `~/.config`, usage in `$XDG_STATE_HOME` or
 //!   `~/.local/state`, each under `pampas/`.
 //! - macOS: `~/Library/Application Support/pampas` for everything. Older versions used the Linux
-//!   locations, so those are still read until `pampas migrate` moves the files.
+//!   locations, so those are still read until `pampas-cli migrate` moves the files.
 //! - Windows: `%APPDATA%\pampas` for config and settings, `%LOCALAPPDATA%\pampas` for usage.
 //!
 //! On Linux and macOS an `XDG_*` variable that is set always wins, which also lets tests and scratch
@@ -97,7 +97,7 @@ fn legacy_state_dir(os: Os, env: Env) -> Option<PathBuf> {
         .map(|h| h.join(".local").join("state").join("pampas"))
 }
 
-/// A default file path, and whether it is an old-location file being used until `pampas migrate` runs.
+/// A default file path, and whether it is an old-location file being used until `pampas-cli migrate` runs.
 #[derive(Debug, PartialEq)]
 pub struct Located {
     pub path: PathBuf,
