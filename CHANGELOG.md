@@ -4,6 +4,33 @@ Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.3.6] - 2026-10-23
+
+### Changed
+
+- `pampas setting set <NAME>` with no value now asks for it at a prompt (shown as typed, since settings are not secrets). Piped with no value, it is an error that says so, rather than waiting on input.
+
+## [0.3.5] - 2026-10-23
+
+### Added
+
+- `pampas setting set <NAME> <VALUE>`, `setting delete <NAME>` and `setting list` manage the values behind `${NAME}` placeholders in a provider's `base_url`, in `settings.json` beside the providers config. An environment variable of the same name takes precedence. `setting list` shows each placeholder the config uses with its value and source (`environment variable`, `settings file`, `not set`).
+- `setting set` refuses names that end in `_KEY`, `_TOKEN`, `_SECRET` or `_PASSWORD` and points at `pampas key set`, since the file is plain text.
+
+### Changed
+
+- The "not set" message for a `${NAME}` placeholder now also names `pampas setting set NAME <value>`.
+
+## [0.3.4] - 2026-10-23
+
+### Added
+
+- `${NAME}` placeholders in an entry's `base_url` are filled from the environment variable `NAME`. A provider whose variable is unset or empty is skipped with a message naming it, like a missing key.
+
+### Changed
+
+- `examples/providers.json` uses `${CLOUDFLARE_ACCOUNT_ID}` in the three Cloudflare entries and `${OLLAMA_REMOTE_HOST}` in `ollama-remote`, replacing the `YOUR_ACCOUNT_ID` and `YOUR_OLLAMA_HOST` placeholders you had to edit by hand. `pampas init` now tells you to set the variables.
+
 ## [0.3.3] - 2026-10-23
 
 ### Changed

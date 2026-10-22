@@ -2,6 +2,7 @@ mod keystore;
 mod merge;
 mod output;
 mod provider;
+mod settings;
 mod usage;
 
 use std::io::IsTerminal;
@@ -14,7 +15,10 @@ use clap::{Parser, Subcommand};
 use futures::future::join_all;
 
 use keystore::{KeyStore, Keychain, Source, resolve};
-use provider::{AppleFm, OpenAiCompatible, Provider, ProviderConfig, ProviderEntry, parse_config, select_enabled};
+use provider::{
+    AppleFm, OpenAiCompatible, Provider, ProviderConfig, ProviderEntry, parse_config, placeholders, select_enabled,
+};
+use settings::{Settings, settings_path};
 use usage::{SharedUsage, Usage, today_utc};
 
 #[derive(Parser)]
@@ -83,11 +87,30 @@ enum Command {
     Usage,
     /// Write the bundled example providers config to the config path (default ~/.config/pampas/providers.json)
     Init,
+    /// Manage the non-secret values behind `${NAME}` placeholders in provider `base_url`s
+    Setting {
+        #[command(subcommand)]
+        action: SettingAction,
+    },
     /// Manage API keys in the OS keychain
     Key {
         #[command(subcommand)]
         action: KeyAction,
     },
+}
+
+#[derive(Subcommand)]
+enum SettingAction {
+    /// Store a value, e.g. `pampas setting set CLOUDFLARE_ACCOUNT_ID abc123`; an environment variable of the same name wins
+    Set {
+        name: String,
+        /// The value; asked for at a prompt if left out
+        value: Option<String>,
+    },
+    /// Remove a stored value
+    Delete { name: String },
+    /// Show each placeholder the config uses, or that is stored, with its value and where it comes from
+    List,
 }
 
 #[derive(Subcommand)]
@@ -150,6 +173,69 @@ fn load_config(path: &Path) -> anyhow::Result<Vec<ProviderEntry>> {
         Err(e) => return Err(e).with_context(|| format!("reading {}", path.display())),
     };
     parse_config(&text)
+}
+
+/// The value of a `${NAME}` placeholder: the environment variable, else the stored setting. Empty counts as unset.
+fn lookup_var(name: &str, settings: &Settings) -> Option<String> {
+    std::env::var(name).ok().filter(|v| !v.is_empty()).or_else(|| settings.get(name))
+}
+
+fn run_setting(action: SettingAction, config: Option<PathBuf>) -> anyhow::Result<()> {
+    let config_path = match config {
+        Some(p) => p,
+        None => default_config_path()?,
+    };
+    let path = settings_path(&config_path);
+    let mut settings = Settings::load(&path)?;
+    match action {
+        SettingAction::Set { name, value } => {
+            settings::check_name(&name)?;
+            let value = match value {
+                Some(v) => v,
+                None => prompt_value(&name)?,
+            };
+            settings.set(&name, &value)?;
+            settings.save(&path)?;
+            println!("stored {name} in {}", path.display());
+            if std::env::var(&name).is_ok_and(|v| !v.is_empty()) {
+                println!("note: the environment variable {name} is set and takes precedence");
+            }
+        }
+        SettingAction::Delete { name } => {
+            if settings.delete(&name) {
+                settings.save(&path)?;
+                println!("deleted {name} from {}", path.display());
+            } else {
+                println!("{name} was not in {}", path.display());
+            }
+        }
+        SettingAction::List => {
+            // The placeholders the config uses (if it can be read) plus anything stored.
+            let mut names: Vec<String> = match load_config(&config_path) {
+                Ok(entries) => entries
+                    .iter()
+                    .filter_map(|e| if let ProviderEntry::OpenAi(cfg) = e { Some(placeholders(&cfg.base_url)) } else { None })
+                    .flatten()
+                    .collect(),
+                Err(_) => Vec::new(),
+            };
+            names.extend(settings.names().cloned());
+            names.sort();
+            names.dedup();
+            let rows: Vec<Vec<String>> = names
+                .iter()
+                .map(|name| match std::env::var(name).ok().filter(|v| !v.is_empty()) {
+                    Some(v) => vec![name.clone(), v, "environment variable".into()],
+                    None => match settings.get(name) {
+                        Some(v) => vec![name.clone(), v, "settings file".into()],
+                        None => vec![name.clone(), "-".into(), "not set".into()],
+                    },
+                })
+                .collect();
+            print_table(&["NAME", "VALUE", "SOURCE"], &rows);
+        }
+    }
+    Ok(())
 }
 
 /// The provider's key: its environment variable, else the keychain. `None` when the entry names no key.
@@ -228,7 +314,7 @@ fn run_init(config: Option<PathBuf>) -> anyhow::Result<()> {
     }
     std::fs::write(&path, EXAMPLE_CONFIG).with_context(|| format!("writing {}", path.display()))?;
     println!("wrote {}", path.display());
-    println!("edit it: replace YOUR_ACCOUNT_ID (Cloudflare) and YOUR_OLLAMA_HOST, and remove providers you do not use");
+    println!("edit it: set CLOUDFLARE_ACCOUNT_ID (Cloudflare) and OLLAMA_REMOTE_HOST with `pampas setting set <NAME> <value>` (or as environment variables), and remove providers you do not use");
     println!("then store keys with `pampas key set <NAME>`; `pampas key types` lists the names");
     Ok(())
 }
@@ -245,6 +331,18 @@ fn key_types(entries: &[ProviderEntry]) -> Vec<(String, Vec<String>)> {
         }
     }
     types
+}
+
+/// Ask for a value on the terminal. The input is shown, since settings are not secrets.
+fn prompt_value(name: &str) -> anyhow::Result<String> {
+    anyhow::ensure!(
+        std::io::stdin().is_terminal(),
+        "no value given for {name}: pass it as an argument (`pampas setting set {name} <value>`) or run this on a terminal to be asked"
+    );
+    eprint!("{name}: ");
+    let mut line = String::new();
+    std::io::stdin().read_line(&mut line).context("reading the value")?;
+    Ok(line)
 }
 
 /// The key piped in on standard input: all of it, since a key is one line and may have a trailing newline.
@@ -321,6 +419,7 @@ async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
     match cli.command {
         Some(Command::Key { action }) => return run_key(action, cli.config),
+        Some(Command::Setting { action }) => return run_setting(action, cli.config),
         Some(Command::Init) => return run_init(cli.config),
         Some(Command::Usage) => return run_usage(cli.config, cli.usage_file),
         None => {}
@@ -341,12 +440,24 @@ async fn main() -> anyhow::Result<()> {
         },
         today_utc(),
     )));
+    let settings = Settings::load(&settings_path(&path))?;
+    let lookup = |name: &str| lookup_var(name, &settings);
     let mut providers: Vec<Box<dyn Provider>> = Vec::new();
     let mut designated: Vec<String> = Vec::new();
     for entry in select_enabled(load_config(&path)?, &cli.enable, &cli.disable)? {
         if entry.synthesizer() {
             designated.push(entry.name().to_string());
         }
+        let entry = match entry {
+            ProviderEntry::OpenAi(mut cfg) => {
+                if let Err(e) = cfg.expand_vars(&lookup) {
+                    eprintln!("skipping provider: {e:#}");
+                    continue;
+                }
+                ProviderEntry::OpenAi(cfg)
+            }
+            other => other,
+        };
         match entry {
             ProviderEntry::OpenAi(cfg) => match find_key(&cfg, &Keychain) {
                 Ok(found) => {

@@ -1297,7 +1297,7 @@ dependencies = [
 
 [[package]]
 name = "pampas"
-version = "0.3.3"
+version = "0.3.6"
 dependencies = [
  "anyhow",
  "clap",

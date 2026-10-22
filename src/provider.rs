@@ -64,7 +64,47 @@ fn default_chat_path() -> String {
     "/chat/completions".to_string()
 }
 
+/// Replace each `${NAME}` in `text` with `lookup(NAME)`. Errors name the first variable that is unset
+/// or empty, or say the `${` is not closed.
+pub fn expand_vars(text: &str, lookup: &dyn Fn(&str) -> Option<String>) -> Result<String, String> {
+    let mut out = String::new();
+    let mut rest = text;
+    while let Some(start) = rest.find("${") {
+        out.push_str(&rest[..start]);
+        let after = &rest[start + 2..];
+        let end = after.find('}').ok_or_else(|| format!("unterminated `${{` in {text:?}"))?;
+        let name = &after[..end];
+        match lookup(name) {
+            Some(value) if !value.is_empty() => out.push_str(&value),
+            _ => return Err(name.to_string()),
+        }
+        rest = &after[end + 1..];
+    }
+    out.push_str(rest);
+    Ok(out)
+}
+
+/// The names of the `${NAME}` placeholders in `text`, in order.
+pub fn placeholders(text: &str) -> Vec<String> {
+    let mut names = Vec::new();
+    let mut rest = text;
+    while let Some(start) = rest.find("${") {
+        let after = &rest[start + 2..];
+        let Some(end) = after.find('}') else { break };
+        names.push(after[..end].to_string());
+        rest = &after[end + 1..];
+    }
+    names
+}
+
 impl ProviderConfig {
+    /// Fill in `${NAME}` placeholders in `base_url`. The error says which variable to set.
+    pub fn expand_vars(&mut self, lookup: &dyn Fn(&str) -> Option<String>) -> anyhow::Result<()> {
+        self.base_url = expand_vars(&self.base_url, lookup)
+            .map_err(|name| anyhow!("{}: base_url uses ${{{name}}}, which is not set: set the environment variable {name} or run `pampas setting set {name} <value>`", self.name))?;
+        Ok(())
+    }
+
     /// The name this provider's requests are counted under.
     pub fn usage_group(&self) -> &str {
         self.usage_group.as_deref().unwrap_or(&self.name)
@@ -391,6 +431,26 @@ mod tests {
     #[test]
     fn empty_choices_is_an_error() {
         assert!(parse_reply(r#"{"choices":[]}"#).is_err());
+    }
+
+    #[test]
+    fn lists_placeholders() {
+        assert_eq!(placeholders("https://x/${A}/y/${B}"), vec!["A", "B"]);
+        assert!(placeholders("https://x/y").is_empty());
+    }
+
+    #[test]
+    fn expands_placeholders_and_names_the_missing_one() {
+        let lookup = |name: &str| match name {
+            "ACCT" => Some("abc123".to_string()),
+            "EMPTY" => Some(String::new()),
+            _ => None,
+        };
+        assert_eq!(expand_vars("https://x/${ACCT}/ai/${ACCT}", &lookup).unwrap(), "https://x/abc123/ai/abc123");
+        assert_eq!(expand_vars("no placeholders", &lookup).unwrap(), "no placeholders");
+        assert_eq!(expand_vars("https://x/${NOPE}", &lookup).unwrap_err(), "NOPE");
+        assert_eq!(expand_vars("https://x/${EMPTY}", &lookup).unwrap_err(), "EMPTY");
+        assert!(expand_vars("https://x/${ACCT", &lookup).unwrap_err().contains("unterminated"));
     }
 
     #[test]

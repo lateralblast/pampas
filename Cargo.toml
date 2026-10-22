@@ -1,6 +1,6 @@
 [package]
 name = "pampas"
-version = "0.3.3"
+version = "0.3.6"
 description = "Parallel AI Multi-provider Prompt Aggregator & Synthesizer"
 edition = "2024"
 

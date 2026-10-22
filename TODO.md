@@ -19,6 +19,7 @@ Status: `[ ]` open, `[~]` in progress, `[x]` done.
 
 ## Done
 
+- [x] `${NAME}` placeholders in `base_url` (environment first, then `pampas setting`), so the Cloudflare account id and the remote Ollama host are set once and the example config needs no editing.
 - [x] `pampas key types` lists the key names the config uses and which providers share each.
 - [x] Tried the keychain on Linux (Ubuntu, GNOME Keyring through the Secret Service): `pampas key set`, `key list` and `key delete` work, the key is stored under service `pampas` and visible to `secret-tool`.
 - [x] Ollama support, local and remote, via the OpenAI-compatible endpoint and an optional `api_key_env`; tested against a local and a remote server.

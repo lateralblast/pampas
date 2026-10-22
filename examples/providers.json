@@ -53,21 +53,21 @@
   },
   {
     "name": "cloudflare-gpt-oss",
-    "base_url": "https://api.cloudflare.com/client/v4/accounts/YOUR_ACCOUNT_ID/ai/v1",
+    "base_url": "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/ai/v1",
     "model": "@cf/openai/gpt-oss-120b",
     "api_key_env": "CLOUDFLARE_API_KEY",
     "usage_group": "cloudflare"
   },
   {
     "name": "cloudflare-llama",
-    "base_url": "https://api.cloudflare.com/client/v4/accounts/YOUR_ACCOUNT_ID/ai/v1",
+    "base_url": "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/ai/v1",
     "model": "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
     "api_key_env": "CLOUDFLARE_API_KEY",
     "usage_group": "cloudflare"
   },
   {
     "name": "cloudflare-gemma",
-    "base_url": "https://api.cloudflare.com/client/v4/accounts/YOUR_ACCOUNT_ID/ai/v1",
+    "base_url": "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/ai/v1",
     "model": "@cf/google/gemma-4-26b-a4b-it",
     "api_key_env": "CLOUDFLARE_API_KEY",
     "usage_group": "cloudflare"
@@ -110,7 +110,7 @@
   },
   {
     "name": "ollama-remote",
-    "base_url": "http://YOUR_OLLAMA_HOST:11434/v1",
+    "base_url": "http://${OLLAMA_REMOTE_HOST}:11434/v1",
     "model": "gemma4:12b",
     "enabled": false
   },
