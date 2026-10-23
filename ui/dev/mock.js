@@ -17,9 +17,11 @@
     { name: "gemini", base_url: "https://generativelanguage.googleapis.com/v1beta/openai", model: "gemini-flash-latest", api_key_env: "GEMINI_API_KEY", usage_group: "gemini" },
     { name: "ollama", base_url: "http://localhost:11434/v1", model: "qwen2.5:7b", timeout: 180, enabled: false },
     { name: "apple", kind: "apple_fm" },
+    { name: "deepseek", kind: "scrape", render: "browser", url: "https://chat.deepseek.com/", input_selector: "textarea", selector: ".answer", enabled: false },
+    { name: "chatgpt", kind: "scrape", render: "browser", url: "https://chatgpt.com/", input_selector: "div[contenteditable]", selector: ".answer", enabled: false },
   ];
   const examples = [
-    ...config.map((e) => ({ ...e })),
+    ...config.filter((e) => e.kind !== "scrape").map((e) => ({ ...e })),
     { name: "nvidia-glm", base_url: "https://integrate.api.nvidia.com/v1", model: "z-ai/glm-5.3-flash", api_key_env: "NVIDIA_API_KEY", usage_group: "nvidia" },
     { name: "ollama-remote", base_url: "http://${OLLAMA_REMOTE_HOST}:11434/v1", model: "gemma4:12b", timeout: 180, enabled: false },
   ];
@@ -35,9 +37,9 @@
 
   const info = (e) => ({
     name: e.name,
-    kind: e.kind === "apple_fm" ? "apple_fm" : "openai",
+    kind: e.kind === "apple_fm" ? "apple_fm" : e.kind === "scrape" ? "scrape" : "openai",
     model: e.model ?? null,
-    base_url: e.base_url ?? null,
+    base_url: e.base_url ?? e.url ?? null,
     enabled: e.enabled !== false,
     synthesizer: e.synthesizer === true,
     timeout: e.timeout ?? null,
@@ -113,7 +115,7 @@
     validate_config: ({ entries }) => {
       const names = entries.map((e) => e.name);
       if (names.length !== new Set(names).size) throw "two providers are named the same; names must be unique";
-      for (const e of entries) if (e.kind !== "apple_fm" && (!e.base_url || !e.model)) throw `provider ${e.name}: base_url and model are required`;
+      for (const e of entries) if (e.kind !== "apple_fm" && e.kind !== "scrape" && (!e.base_url || !e.model)) throw `provider ${e.name}: base_url and model are required`;
       return null;
     },
     save_config: ({ entries }) => { handlers.validate_config({ entries }); config = JSON.parse(JSON.stringify(entries)); return null; },
@@ -130,6 +132,7 @@
       const chosen = config.filter((e) => {
         const on = (e.enabled !== false || request.enable.includes(e.name)) && !request.disable.includes(e.name);
         if (!on) return false;
+        if (e.kind === "scrape" && !request.scrape) { warnings.push(`skipping provider: ${e.name}: it scrapes a web site, which is off unless you ask for it (--scrape)`); return false; }
         if (keyStatus(e) === "missing") { warnings.push(`skipping provider: ${e.name}: no key: set ${e.api_key_env} or run \`pampas-cli key set ${e.api_key_env}\``); return false; }
         if (e.daily_limit && (used[group(e)] ?? 0) >= e.daily_limit && !request.ignore_limits) { warnings.push(`skipping provider: ${e.name}: daily limit of ${e.daily_limit} requests reached (${used[group(e)]} used today, UTC)`); return false; }
         return true;

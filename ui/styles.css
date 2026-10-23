@@ -236,6 +236,9 @@ details > summary:hover { color: var(--ink); }
 button[aria-disabled="true"] { opacity: .65; cursor: progress; }
 button.primary.idle { background: var(--surface); color: var(--ink-2); border-color: var(--rule-strong); font-weight: 400; cursor: not-allowed; opacity: 1; }
 .advanced { margin: .25rem 0; }
+.scrape-sites { margin: .35rem 0 .25rem 1.65rem; }
+.scrape-list { list-style: none; margin: .25rem 0 0; padding: 0; font-size: var(--step--1); }
+.scrape-list li { display: flex; gap: .6rem; flex-wrap: wrap; padding: .1rem 0; }
 .advanced-body { padding: .5rem 0 .25rem 1rem; max-width: 40rem; }
 .advanced-body .field input[type="number"] { max-width: 14rem; }
 

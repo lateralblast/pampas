@@ -16,6 +16,7 @@ use crate::output;
 use crate::provider::{
     AppleFm, OpenAiCompatible, Provider, ProviderConfig, ProviderEntry, parse_config, placeholders, select_enabled,
 };
+use crate::scrape::Scrape;
 use crate::settings::Settings;
 use crate::usage::{SharedUsage, Usage};
 
@@ -111,8 +112,8 @@ pub fn key_rows(entries: &[ProviderEntry], store: &dyn KeyStore) -> Vec<KeyRow> 
                 };
                 KeyRow { provider: cfg.name.clone(), key: cfg.api_key_env.clone(), status }
             }
-            ProviderEntry::AppleFm(cfg) => {
-                KeyRow { provider: cfg.name.clone(), key: None, status: KeyStatus::NotNeeded }
+            ProviderEntry::AppleFm(_) | ProviderEntry::Scrape(_) => {
+                KeyRow { provider: entry.name().to_string(), key: None, status: KeyStatus::NotNeeded }
             }
         })
         .collect()
@@ -142,6 +143,12 @@ pub fn usage_rows(entries: &[ProviderEntry], usage: &Usage) -> Vec<UsageRow> {
             ProviderEntry::AppleFm(cfg) => {
                 UsageRow { provider: cfg.name.clone(), group: None, used: 0, limit: None }
             }
+            ProviderEntry::Scrape(cfg) => UsageRow {
+                provider: cfg.name.clone(),
+                group: Some(cfg.usage_group().to_string()),
+                used: usage.used(cfg.usage_group()),
+                limit: cfg.daily_limit,
+            },
         })
         .collect()
 }
@@ -192,6 +199,19 @@ pub struct BuildOptions<'a> {
     pub disable: &'a [String],
     /// Do not stop at `daily_limit` (requests are still counted).
     pub ignore_limits: bool,
+    /// Allow providers that scrape web sites (`--scrape`); without it they are skipped with a warning.
+    pub scrape: bool,
+}
+
+/// The `enable` and `disable` lists that make a run use only the provider called `name`: it is turned on
+/// even if its entry says `"enabled": false`, and every other provider is left out. An unknown name is an error.
+pub fn only_selection(entries: &[ProviderEntry], name: &str) -> anyhow::Result<(Vec<String>, Vec<String>)> {
+    if !entries.iter().any(|e| e.name() == name) {
+        let known: Vec<&str> = entries.iter().map(|e| e.name()).collect();
+        anyhow::bail!("no provider named `{name}` (configured: {})", known.join(", "));
+    }
+    let others = entries.iter().map(|e| e.name()).filter(|n| *n != name).map(str::to_string).collect();
+    Ok((vec![name.to_string()], others))
 }
 
 /// The providers that can run, the names marked as preferred synthesizers, and why any others were left out.
@@ -244,6 +264,28 @@ pub fn build_providers(
                         }
                     }
                     Err(e) => built.warnings.push(format!("skipping provider: {e:#}")),
+                }
+            }
+            ProviderEntry::Scrape(cfg) => {
+                if !options.scrape {
+                    built.warnings.push(format!(
+                        "skipping provider: {}: it scrapes a web site, which is off unless you ask for it (--scrape)",
+                        cfg.name
+                    ));
+                    continue;
+                }
+                let used = usage.lock().expect("usage lock").used(cfg.usage_group());
+                match cfg.daily_limit {
+                    Some(limit) if used >= limit && !options.ignore_limits => built.warnings.push(format!(
+                        "skipping provider: {}: daily limit of {limit} requests reached ({used} used today, UTC)",
+                        cfg.name
+                    )),
+                    _ => built.providers.push(Box::new(Scrape::new(
+                        cfg,
+                        client.clone(),
+                        usage.clone(),
+                        !options.ignore_limits,
+                    ))),
                 }
             }
             ProviderEntry::AppleFm(cfg) => match AppleFm::check(&cfg) {
@@ -484,7 +526,7 @@ mod tests {
     fn building_skips_unusable_providers_with_a_warning_and_never_prints() {
         let usage: SharedUsage = Arc::new(Mutex::new(Usage::in_memory("2026-01-01")));
         let client = reqwest::Client::new();
-        let opts = BuildOptions { enable: &[], disable: &[], ignore_limits: false };
+        let opts = BuildOptions { enable: &[], disable: &[], ignore_limits: false, scrape: false };
         // No account id and no key: "a" is skipped for the id first; "local" runs; "off" is disabled.
         let built = build_providers(entries(), &Settings::default(), &Fake(None), &usage, &client, &opts).unwrap();
         let names: Vec<&str> = built.providers.iter().map(|p| p.name()).collect();
@@ -492,10 +534,39 @@ mod tests {
         assert_eq!(built.warnings.len(), 1);
         assert!(built.warnings[0].starts_with("skipping provider:") && built.warnings[0].contains("PAMPAS_ENGINE_TEST_ACCT"));
         // Turning on a disabled entry, and an unknown name is an error.
-        let opts = BuildOptions { enable: &["off".to_string()], disable: &[], ignore_limits: false };
+        let opts = BuildOptions { enable: &["off".to_string()], disable: &[], ignore_limits: false, scrape: false };
         let built = build_providers(entries(), &Settings::default(), &Fake(None), &usage, &client, &opts).unwrap();
         assert_eq!(built.providers.len(), 2);
-        let opts = BuildOptions { enable: &["nope".to_string()], disable: &[], ignore_limits: false };
+        let opts = BuildOptions { enable: &["nope".to_string()], disable: &[], ignore_limits: false, scrape: false };
         assert!(build_providers(entries(), &Settings::default(), &Fake(None), &usage, &client, &opts).is_err());
+    }
+
+    #[test]
+    fn only_selects_one_provider_even_if_it_is_switched_off() {
+        let es = entries();
+        let (enable, disable) = only_selection(&es, "off").unwrap();
+        assert_eq!(enable, ["off"]);
+        assert!(!disable.contains(&"off".to_string()) && disable.len() == es.len() - 1);
+        let picked = select_enabled(entries(), &enable, &disable).unwrap();
+        assert_eq!(picked.len(), 1);
+        assert_eq!(picked[0].name(), "off");
+        assert!(only_selection(&es, "nope").unwrap_err().to_string().contains("no provider named `nope`"));
+    }
+
+    #[test]
+    fn scrape_providers_run_only_with_scrape() {
+        let cfg = r#"[{"name":"site","kind":"scrape","url":"https://x.test/?q={prompt}","selector":"p"}]"#;
+        let usage: SharedUsage = Arc::new(Mutex::new(Usage::in_memory("2026-01-01")));
+        let client = reqwest::Client::new();
+        let build = |scrape| {
+            let opts = BuildOptions { enable: &[], disable: &[], ignore_limits: false, scrape };
+            build_providers(parse_config(cfg).unwrap(), &Settings::default(), &Fake(None), &usage, &client, &opts).unwrap()
+        };
+        let off = build(false);
+        assert!(off.providers.is_empty());
+        assert!(off.warnings[0].contains("--scrape"));
+        let on = build(true);
+        assert_eq!(on.providers.len(), 1);
+        assert!(on.warnings.is_empty());
     }
 }

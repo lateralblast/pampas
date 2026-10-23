@@ -39,6 +39,10 @@ struct Cli {
     #[arg(long, value_name = "NAME", value_delimiter = ',')]
     disable: Vec<String>,
 
+    /// Ask only this provider, even if its entry is switched off, and leave every other one out
+    #[arg(long, value_name = "NAME", conflicts_with_all = ["enable", "disable"])]
+    only: Option<String>,
+
     /// Consolidate the answers into one by asking a provider to synthesize them
     #[arg(long)]
     merge: bool,
@@ -64,6 +68,11 @@ struct Cli {
     #[arg(long)]
     ignore_limits: bool,
 
+    /// Also ask providers that scrape web sites with no API (`"kind": "scrape"` entries). Off by default:
+    /// automated requests can get your IP address blocked or banned, and may break a site's terms
+    #[arg(long)]
+    scrape: bool,
+
     /// Request-count file (default: ~/.local/state/pampas/usage.json)
     #[arg(long, global = true, value_name = "PATH")]
     usage_file: Option<PathBuf>,
@@ -86,6 +95,11 @@ enum Command {
         #[command(subcommand)]
         action: SettingAction,
     },
+    /// Add or list web sites that are scraped because they have no API (used with `--scrape`)
+    Scrape {
+        #[command(subcommand)]
+        action: ScrapeAction,
+    },
     /// Manage API keys in the OS keychain
     Key {
         #[command(subcommand)]
@@ -104,6 +118,81 @@ enum SettingAction {
     /// Remove a stored value
     Delete { name: String },
     /// Show each placeholder the config uses, or that is stored, with its value and where it comes from
+    List,
+}
+
+#[derive(Subcommand)]
+enum ScrapeAction {
+    /// Add a scrape source to the providers config. This is the only way to add one: it shows the risks
+    /// and needs you to type "I understand" at a terminal (the app can show and switch these sources but not add them).
+    /// With a known name and no other options (`pampas-cli scrape add deepseek`) the built-in setup for that site is used
+    Add {
+        /// Name shown in answers; `deepseek` alone uses the built-in setup
+        name: String,
+        /// Say you have read the risks instead of typing "I understand": they are still printed, followed by a
+        /// line saying you acknowledged them, and no terminal is needed
+        #[arg(long)]
+        acknowledge: bool,
+        /// Address to request; `{prompt}` is replaced by the prompt, percent-encoded
+        #[arg(long)]
+        url: Option<String>,
+        /// CSS selector for the elements whose text is the answer (an HTML reply)
+        #[arg(long, conflicts_with = "json_pointer")]
+        selector: Option<String>,
+        /// JSON pointer to the answer, e.g. /data/0/text (a JSON reply)
+        #[arg(long)]
+        json_pointer: Option<String>,
+        /// Send a POST with this body instead of a GET; `{prompt}` is replaced by the prompt
+        #[arg(long)]
+        body: Option<String>,
+        /// How the prompt is encoded in the body: form (default) or json
+        #[arg(long, value_parser = ["form", "json"], requires = "body")]
+        body_format: Option<String>,
+        /// Extra request header as `Name: value`; repeatable
+        #[arg(long = "header", value_name = "NAME: VALUE")]
+        headers: Vec<String>,
+        /// User-Agent header (default `pampas`)
+        #[arg(long)]
+        user_agent: Option<String>,
+        /// Drive a real Chrome instead of sending one request, for pages that need JavaScript or a login;
+        /// `--selector` is then the answer's selector and `--input-selector` is required
+        #[arg(long)]
+        browser: bool,
+        /// Browser: CSS selector of the box the prompt is typed into
+        #[arg(long)]
+        input_selector: Option<String>,
+        /// Browser: CSS selector of the send button (default: press Enter)
+        #[arg(long)]
+        submit_selector: Option<String>,
+        /// Browser: CSS selector of something visible only while the answer is being written, e.g. a stop button
+        #[arg(long)]
+        busy_selector: Option<String>,
+        /// Browser: CSS selector of an iframe on the same site that holds the answer; `--selector` and
+        /// `--busy-selector` are then looked up inside it
+        #[arg(long)]
+        answer_frame: Option<String>,
+        /// Browser: seconds the answer must stay unchanged to count as finished (default 4)
+        #[arg(long)]
+        settle_secs: Option<u64>,
+        /// Browser: run with no window (many sites block this)
+        #[arg(long)]
+        headless: bool,
+        /// Browser: path to Chrome or Chromium if it is not found on its own
+        #[arg(long)]
+        browser_path: Option<String>,
+        /// Most requests per UTC day (strongly advised, to lower the chance of a block)
+        #[arg(long)]
+        daily_limit: Option<u32>,
+        /// Seconds to wait for this site
+        #[arg(long)]
+        timeout: Option<u64>,
+    },
+    /// Open a browser source's page in a normal window on its own profile, so you can log in by hand once;
+    /// close the window when done
+    Login { name: String },
+    /// Remove a scrape source from the providers config (a browser source's login stays in its profile folder)
+    Remove { name: String },
+    /// List the scrape sources in the providers config
     List,
 }
 
@@ -263,6 +352,212 @@ fn run_init(config: Option<PathBuf>) -> anyhow::Result<()> {
     write_example_and_explain(&path)
 }
 
+/// `pampas-cli scrape add|remove|list|login`. Adding needs the risks acknowledged: typed at a terminal, or
+/// with `--acknowledge`, which the user passes knowing what it says. The app can never add one.
+async fn run_scrape(action: ScrapeAction, config: Option<PathBuf>) -> anyhow::Result<()> {
+    let path = match config {
+        Some(p) => p,
+        None => default_config_path()?,
+    };
+    match action {
+        ScrapeAction::Login { name } => {
+            let cfg = load_config(&path)?
+                .into_iter()
+                .find_map(|e| match e {
+                    pampas::provider::ProviderEntry::Scrape(c) if c.name == name => Some(c),
+                    _ => None,
+                })
+                .with_context(|| format!("no scrape source named {name:?} in {}", path.display()))?;
+            anyhow::ensure!(cfg.render == pampas::scrape::Render::Browser, "{name} is not a browser source, so it has nothing to log in to");
+            println!("opening {} in a browser window for {name}: log in, then close the window", cfg.url);
+            pampas::browser::login(&cfg).await
+        }
+        ScrapeAction::Remove { name } => {
+            pampas::scrape::remove_entry(&path, &name)?;
+            println!("removed {name} from {}; the previous file is kept as providers.json.bak", path.display());
+            Ok(())
+        }
+        ScrapeAction::List => {
+            let rows: Vec<Vec<String>> = load_config(&path)?
+                .into_iter()
+                .filter_map(|e| match e {
+                    pampas::provider::ProviderEntry::Scrape(c) => Some(vec![
+                        c.name.clone(),
+                        c.url.clone(),
+                        c.daily_limit.map_or("none".to_string(), |n| n.to_string()),
+                        if c.enabled { "on" } else { "off" }.to_string(),
+                    ]),
+                    _ => None,
+                })
+                .collect();
+            if rows.is_empty() {
+                println!("no scrape sources in {}; add one with `pampas-cli scrape add`", path.display());
+            } else {
+                print_table(&["NAME", "URL", "DAILY LIMIT", "ENABLED"], &rows);
+            }
+            Ok(())
+        }
+        ScrapeAction::Add {
+            name,
+            acknowledge,
+            url,
+            selector,
+            json_pointer,
+            body,
+            body_format,
+            headers,
+            user_agent,
+            browser,
+            input_selector,
+            submit_selector,
+            busy_selector,
+            answer_frame,
+            settle_secs,
+            headless,
+            browser_path,
+            daily_limit,
+            timeout,
+        } => {
+            use serde_json::{Map, Value, json};
+            // A known site with no address given: fill in what is known about it.
+            let (mut selector, mut browser, mut input_selector, mut settle_secs, mut daily_limit, mut busy_selector) =
+                (selector, browser, input_selector, settle_secs, daily_limit, busy_selector);
+            let mut answer_frame = answer_frame;
+            let mut submit_selector = submit_selector;
+            let mut site_warning = None;
+            let mut first_run = None;
+            let url = match url {
+                Some(url) => url,
+                None => {
+                    let preset = pampas::scrape::preset(&name).with_context(|| {
+                        format!(
+                            "no address given: pass --url, or use the name of a built-in site ({})",
+                            pampas::scrape::PRESETS.iter().map(|p| p.name).collect::<Vec<_>>().join(", ")
+                        )
+                    })?;
+                    anyhow::ensure!(
+                        json_pointer.is_none() && body.is_none(),
+                        "the built-in setup for {name} cannot be combined with --json-pointer or --body"
+                    );
+                    println!("using the built-in setup for {name} ({}); change any part of it with its option", preset.checked);
+                    browser = true;
+                    selector.get_or_insert_with(|| preset.selector.to_string());
+                    input_selector.get_or_insert_with(|| preset.input_selector.to_string());
+                    if let Some(busy) = preset.busy_selector {
+                        busy_selector.get_or_insert_with(|| busy.to_string());
+                    }
+                    if let Some(button) = preset.submit_selector {
+                        submit_selector.get_or_insert_with(|| button.to_string());
+                    }
+                    if let Some(frame) = preset.answer_frame {
+                        answer_frame.get_or_insert_with(|| frame.to_string());
+                    }
+                    site_warning = preset.warning;
+                    first_run = preset.first_run;
+                    settle_secs.get_or_insert(preset.settle_secs);
+                    daily_limit.get_or_insert(preset.daily_limit);
+                    preset.url.to_string()
+                }
+            };
+            let mut entry = Map::new();
+            entry.insert("name".into(), json!(name));
+            entry.insert("kind".into(), json!("scrape"));
+            entry.insert("url".into(), json!(url));
+            if let Some(v) = selector {
+                entry.insert("selector".into(), json!(v));
+            }
+            if let Some(v) = json_pointer {
+                entry.insert("json_pointer".into(), json!(v));
+            }
+            if browser {
+                entry.insert("render".into(), json!("browser"));
+            }
+            for (key, value) in [
+                ("input_selector", input_selector),
+                ("submit_selector", submit_selector),
+                ("busy_selector", busy_selector),
+                ("answer_frame", answer_frame),
+                ("browser_path", browser_path),
+            ] {
+                if let Some(v) = value {
+                    entry.insert(key.into(), json!(v));
+                }
+            }
+            if let Some(v) = settle_secs {
+                entry.insert("settle_secs".into(), json!(v));
+            }
+            if headless {
+                entry.insert("headless".into(), json!(true));
+            }
+            if let Some(v) = body {
+                entry.insert("method".into(), json!("post"));
+                entry.insert("body".into(), json!(v));
+            }
+            if let Some(v) = body_format {
+                entry.insert("body_format".into(), json!(v));
+            }
+            if !headers.is_empty() {
+                let mut map = Map::new();
+                for h in &headers {
+                    let (k, v) = h.split_once(':').with_context(|| format!("header {h:?} must look like `Name: value`"))?;
+                    map.insert(k.trim().to_string(), json!(v.trim()));
+                }
+                entry.insert("headers".into(), Value::Object(map));
+            }
+            if let Some(v) = user_agent {
+                entry.insert("user_agent".into(), json!(v));
+            }
+            if let Some(v) = daily_limit {
+                entry.insert("daily_limit".into(), json!(v));
+            }
+            if let Some(v) = timeout {
+                entry.insert("timeout".into(), json!(v));
+            }
+            let entry = Value::Object(entry);
+            // Check the entry before asking anyone to acknowledge anything.
+            pampas::provider::parse_config(&serde_json::to_string(&[&entry])?)?;
+            anyhow::ensure!(
+                acknowledge || (std::io::stdin().is_terminal() && std::io::stderr().is_terminal()),
+                "adding a scrape source needs a terminal where you type \"{}\", or the --acknowledge flag, which says you have read the risks",
+                pampas::scrape::ACK_PHRASE
+            );
+            eprintln!("{}\n", pampas::scrape::ADD_NOTICE);
+            if browser {
+                eprintln!("{}\n", pampas::scrape::ADD_BROWSER_NOTICE);
+            }
+            if let Some(warning) = site_warning {
+                eprintln!("{warning}\n");
+            }
+            if acknowledge {
+                eprintln!(
+                    "Acknowledged with --acknowledge: by adding {name:?} you accept the risks above (a blocked or banned IP address or account, breaking the site's terms, a layout change breaking the source).\n"
+                );
+            } else {
+                eprint!("Type \"{}\" to add {name:?} to {}: ", pampas::scrape::ACK_PHRASE, path.display());
+                let mut answer = String::new();
+                std::io::stdin().read_line(&mut answer).context("reading the answer")?;
+                anyhow::ensure!(answer.trim() == pampas::scrape::ACK_PHRASE, "not added");
+            }
+            let cfg: pampas::scrape::ScrapeConfig = serde_json::from_value(entry.clone())?;
+            pampas::scrape::add_entry(&path, entry)?;
+            println!("added {name} to {}; ask it with `--scrape`, or tick scraping under More options in the app", path.display());
+            if browser {
+                if pampas::browser::has_profile(&cfg) {
+                    println!("already logged in before; if it stops working, log in again with `pampas-cli scrape login {name}`");
+                } else {
+                    match first_run {
+                        Some(what) => println!("a browser window opens now on {}: {what}", cfg.url),
+                        None => println!("you need to log in to {} once: a browser window opens now; log in, then close the window", cfg.url),
+                    }
+                    pampas::browser::login(&cfg).await?;
+                    println!("done; try `pampas-cli --scrape --only {name} \"hello\"`");
+                }
+            }
+            Ok(())
+        }
+    }
+}
+
 /// Whether a typed answer means yes.
 fn is_yes(answer: &str) -> bool {
     matches!(answer.trim().to_ascii_lowercase().as_str(), "y" | "yes")
@@ -385,6 +680,7 @@ async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
     match cli.command {
         Some(Command::Key { action }) => return run_key(action, cli.config),
+        Some(Command::Scrape { action }) => return run_scrape(action, cli.config).await,
         Some(Command::Setting { action }) => return run_setting(action, cli.config),
         Some(Command::Init) => return run_init(cli.config),
         Some(Command::Migrate) => return run_migrate(),
@@ -402,8 +698,16 @@ async fn main() -> anyhow::Result<()> {
         None => default_usage_path()?,
     });
     let settings = Settings::load(&settings_path(&path))?;
-    let options = BuildOptions { enable: &cli.enable, disable: &cli.disable, ignore_limits: cli.ignore_limits };
-    let built = build_providers(load_config(&path)?, &settings, &Keychain, &usage, &client, &options)?;
+    let entries = load_config(&path)?;
+    let (enable, disable) = match &cli.only {
+        Some(name) => pampas::engine::only_selection(&entries, name)?,
+        None => (cli.enable.clone(), cli.disable.clone()),
+    };
+    let options = BuildOptions { enable: &enable, disable: &disable, ignore_limits: cli.ignore_limits, scrape: cli.scrape };
+    if cli.scrape {
+        eprintln!("warning: {}", pampas::scrape::SCRAPE_WARNING);
+    }
+    let built = build_providers(entries, &settings, &Keychain, &usage, &client, &options)?;
     for warning in &built.warnings {
         eprintln!("{warning}");
     }

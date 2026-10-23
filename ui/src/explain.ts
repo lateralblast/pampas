@@ -20,6 +20,28 @@ export function explainFailure(raw: string): Plain {
       detail: raw,
     };
   }
+  if (t.includes("blocking this address")) {
+    return {
+      summary: "The site refused the request and may be blocking this address. Stop asking it for a while.",
+      detail: raw,
+    };
+  }
+  if (t.includes("input box was not found")) {
+    return {
+      summary: "The chat page showed no place to type. You may need to log in again, or the site is showing a check or has changed.",
+      detail: raw,
+    };
+  }
+  if (t.includes("no chrome or chromium") || t.includes("browser did not start")) {
+    return { summary: "The browser for this source could not be started.", detail: raw };
+  }
+  if (t.includes("selector matched no text") || t.includes("nothing at `")) {
+    return {
+      summary: "The page came back without an answer in the place pampas looks. Its layout may have changed, or it sent a block or login page.",
+      fix: { label: "Check the source", tab: "sources" },
+      detail: raw,
+    };
+  }
   const http = /http (\d{3})/.exec(t);
   const code = http ? Number(http[1]) : 0;
   if (code === 401 || code === 403) {
@@ -66,6 +88,11 @@ export function explainSkip(warning: string): { provider: string; plain: Plain }
     plain = {
       summary: `Today's free requests are used up${n ? ` (${n[1]})` : ""}. They reset at 00:00 UTC.`,
       fix: { label: "See usage", tab: "usage" },
+      detail: reason,
+    };
+  } else if (r.includes("--scrape")) {
+    plain = {
+      summary: "It scrapes a web site, and scraping is off. Turn it on under More options on the Ask page.",
       detail: reason,
     };
   } else if (r.includes("which is not set")) {

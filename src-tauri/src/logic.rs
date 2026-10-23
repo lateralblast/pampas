@@ -72,7 +72,7 @@ fn entries(loc: &Locations) -> anyhow::Result<Vec<ProviderEntry>> {
 #[derive(Debug, Serialize)]
 pub struct ProviderInfo {
     pub name: String,
-    /// `openai` or `apple_fm`.
+    /// `openai`, `apple_fm` or `scrape`.
     pub kind: &'static str,
     pub model: Option<String>,
     /// The URL as written in the file, `${NAME}` placeholders unexpanded.
@@ -135,6 +135,11 @@ pub fn list_providers(loc: &Locations, store: &dyn KeyStore) -> anyhow::Result<V
                 info.fallback = cfg.fallback.is_some();
                 info.placeholders = placeholders(&cfg.base_url);
             }
+            if let ProviderEntry::Scrape(cfg) = entry {
+                info.kind = "scrape";
+                info.base_url = Some(cfg.url.clone());
+                info.timeout = cfg.timeout;
+            }
             info
         })
         .collect())
@@ -157,6 +162,10 @@ pub fn validate_config(entries: &[Value]) -> anyhow::Result<()> {
 /// Nothing is written when validation fails.
 pub fn save_config(loc: &Locations, entries: &[Value]) -> anyhow::Result<()> {
     validate_config(entries)?;
+    // Scrape sources are added with `pampas-cli scrape add`, which makes the user acknowledge the risks.
+    let on_disk: Vec<Value> =
+        std::fs::read_to_string(&loc.config).ok().and_then(|t| serde_json::from_str(&t).ok()).unwrap_or_default();
+    pampas::scrape::check_app_edit(&on_disk, entries)?;
     let mut seen = std::collections::HashSet::new();
     for e in entries {
         let name = e.get("name").and_then(Value::as_str).unwrap_or_default();
@@ -285,6 +294,8 @@ pub struct AskRequest {
     /// Seconds for every provider, overriding the entries' own.
     pub timeout: Option<u64>,
     pub ignore_limits: bool,
+    /// Allow providers that scrape web sites (off by default: risks an IP block or ban).
+    pub scrape: bool,
 }
 
 /// One provider's answer or failure.
@@ -343,7 +354,7 @@ pub async fn ask(
     let settings = Settings::load(&loc.settings)?;
     let usage = load_usage(loc.usage.clone());
     let client = reqwest::Client::new();
-    let options = BuildOptions { enable: &request.enable, disable: &request.disable, ignore_limits: request.ignore_limits };
+    let options = BuildOptions { enable: &request.enable, disable: &request.disable, ignore_limits: request.ignore_limits, scrape: request.scrape };
     let built = build_providers(entries(loc)?, &settings, store, &usage, &client, &options)?;
     anyhow::ensure!(
         !built.providers.is_empty(),

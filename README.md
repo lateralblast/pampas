@@ -2,7 +2,7 @@
 
 # pampas
 
-Version: 0.5.2
+Version: 0.6.9
 
 **pampas** is short for Parallel AI Multi-provider Prompt Aggregator & Synthesizer: a command-line tool and desktop app that send one prompt to several free AI services in parallel and merge the results.
 
@@ -21,6 +21,7 @@ Version: 0.5.2
 - [Ollama](#ollama)
 - [Cloudflare Workers AI](#cloudflare-workers-ai)
 - [Apple Intelligence](#apple-intelligence)
+- [Scraping web sites](#scraping-web-sites)
 - [GUI (in development)](#gui-in-development)
 - [Building installers](#building-installers)
 - [Environment variables](#environment-variables)
@@ -68,7 +69,7 @@ Providers are listed in `providers.json` in the config directory (see [File loca
 | `daily_limit` | none | The most requests to make per UTC day, after which the provider is skipped (see [Usage limits](#usage-limits)). |
 | `usage_group` | the entry's name | The name requests are counted under; entries that share one account's quota should share a group. |
 | `enabled` | `true` | `false` leaves the provider out of runs unless `--enable <name>` is given. |
-| `kind` | `openai` | `apple_fm` for Apple's on-device model, which takes only `name`, `command`, `enabled` and `synthesizer` (see [Apple Intelligence](#apple-intelligence)). |
+| `kind` | `openai` | `apple_fm` for Apple's on-device model, which takes only `name`, `command`, `enabled` and `synthesizer` (see [Apple Intelligence](#apple-intelligence)); `scrape` for a web site with no API (see [Scraping web sites](#scraping-web-sites)). |
 
 `fallback: "free_models"` makes a provider whose `model` fails (an HTTP error such as `429` or `404`; a timeout does not trigger it) list the service's `/models` and try up to 3 free text models in listed order (a model counts as free when its prompt and completion prices are both `0` and its id ends in `:free`; safety classifiers and non-text models are skipped). When a fallback model answers, a notice naming it goes to stderr. The whole attempt, fallbacks included, shares the timeout, so raise it (for example `--timeout 60`) for providers with a fallback. It needs a service that lists pricing in `/models`, as OpenRouter does; the example `openrouter` entry uses it.
 
@@ -145,12 +146,15 @@ Store each key with `pampas-cli key set <NAME>` or export it as an environment v
 - `--timeout <secs>`: per-provider timeout in seconds. Without it a provider gets its entry's `timeout`, else 30. With it, every provider gets this value for the run, so it overrides entries; the `--merge` call uses the synthesizer's timeout the same way.
 - `--enable <name>`: run a provider whose config entry has `"enabled": false`. Repeatable, or comma-separated (`--enable a,b`).
 - `--disable <name>`: leave a provider out of this run. Repeatable, or comma-separated. A name that matches no configured provider, or is both enabled and disabled, is an error.
+- `--only <name>`: ask only this provider, even if its entry has `"enabled": false`, and leave every other one out (so `pampas-cli --scrape --only deepseek "..."`). Cannot be combined with `--enable` or `--disable`; an unknown name is an error. Scrape sources still need `--scrape`.
 - `--merge`: consolidate the answers into one, see [Merging answers](#merging-answers).
 - `--synthesizer <name>`: with `--merge`, the provider that writes the consolidated answer.
 - `--show-answers`: with `--merge`, also print each provider's own answer after the consolidated one.
 - `-f, --format <text|markdown|md|json>`: output format, see [Output formats](#output-formats) (default `markdown`).
 - `-o, --output <path>`: write the result to this file instead of stdout, overwriting it. A `wrote <path>` note goes to stderr. If the file cannot be written, the result is printed to stdout instead and `pampas` exits with an error.
 - `--ignore-limits`: ignore every `daily_limit` for this run; requests are still counted.
+- `scrape add|remove|list|login` (a command, see [Scraping web sites](#scraping-web-sites)) adds, removes, lists or logs in to scrape sources.
+- `--scrape`: also ask the `"kind": "scrape"` entries, web sites that have no API (see [Scraping web sites](#scraping-web-sites)). Off by default; prints a warning that your IP address can be blocked or banned. Without it those entries are skipped with a warning.
 - `--usage-file <path>`: where request counts are kept (default `usage.json` in the state directory, see [File locations](#file-locations)). Also accepted by `pampas-cli usage`.
 - `--config <path>`: providers config file (default `providers.json` in the config directory, see [File locations](#file-locations)). Also accepted by `pampas-cli key list`.
 
@@ -374,6 +378,159 @@ Then add an entry with `"kind": "apple_fm"` (the example config has one):
 
 `command` is optional (default `pampas-apple-fm`, looked up on `PATH`; a value with a slash is used as a path). Entries without `kind` are OpenAI-compatible as before. At startup `pampas` runs `pampas-apple-fm --check`; if the helper is missing or the model is unavailable (Apple Intelligence off, unsupported Mac, model still downloading), the entry is skipped with a warning and the other providers still run, so the same config works on any machine. `pampas-cli key list` shows `no key needed` for these entries.
 
+## Scraping web sites
+
+For a web site that has no API, an entry with `"kind": "scrape"` sends the prompt in an ordinary HTTP request and reads the answer out of the page or out of a JSON reply. Scrape sources can only be **added from the command line** (`pampas-cli scrape add`), which shows the risks below and needs you to acknowledge them: type `I understand` at a terminal, or pass `--acknowledge` (the risks are still printed, followed by a line saying you acknowledged them; no terminal is needed, so a script can add a source, and the flag is a statement that you have read them). Once added they appear in the app's Sources tab, where you can switch them on or off and change their timeout and daily limit, but not add them or change their address or request (the app refuses a saved list that does). They are off unless you ask for it, with `--scrape` on the command line or **Also ask web sites that have no API (scraping)** under *More options* on the Ask tab.
+
+**Risks.** Automated requests to a web site can get your IP address blocked or banned (by that site, and sometimes by the network in front of it), and may break the site's terms of use. Pampas sends one request per question, identifies itself as `pampas` (set `user_agent` to change that), and does not try to hide or get around blocks, logins or captchas. Use `daily_limit` to keep the count low, and stop if a site starts answering `403` or `429`. You are responsible for the sites you add; none are built in, and the bundled example config has none.
+
+```
+pampas-cli scrape add some-site --url 'https://example.com/search?q={prompt}' --selector 'main p' --daily-limit 20
+pampas-cli scrape list
+pampas-cli scrape remove some-site
+```
+
+`scrape remove <name>` takes a scrape source out of the providers config (the previous file is kept as `providers.json.bak`); it refuses any other kind of source, and needs no acknowledgement. A browser source's login stays in its profile folder under the state directory, so adding it again does not need another login.
+
+`scrape add` options: `--url`, `--selector` or `--json-pointer`, `--body` (makes it a POST), `--body-format form|json`, `--header 'Name: value'` (repeatable), `--user-agent`, `--daily-limit`, `--timeout`. It writes this entry (the previous file is kept as `providers.json.bak`):
+
+```json
+{
+  "name": "some-site",
+  "kind": "scrape",
+  "url": "https://example.com/search?q={prompt}",
+  "selector": "main p",
+  "daily_limit": 20
+}
+```
+
+| Field | Default | Meaning |
+|---|---|---|
+| `name`, `enabled`, `synthesizer`, `daily_limit`, `timeout`, `usage_group` | | As for other providers. |
+| `url` | required | Address to request. `{prompt}` is replaced by the prompt, percent-encoded. |
+| `method` | `get` | `get` or `post`. |
+| `body` | none | Request body for `post` (required then). `{prompt}` is replaced by the prompt. |
+| `body_format` | `form` | `form` (`application/x-www-form-urlencoded`, prompt percent-encoded) or `json` (prompt escaped inside a JSON string). |
+| `headers` | none | Extra request headers, for example `Accept-Language`. `{prompt}` is not replaced here. |
+| `user_agent` | `pampas` | The `User-Agent` header. |
+| `selector` | | CSS selector for the elements whose text is the answer (HTML reply). One paragraph per match. |
+| `json_pointer` | | JSON pointer such as `/data/0/text` to the answer (JSON reply). Give `selector` or `json_pointer`, not both. |
+
+### Pages that need JavaScript or a login (browser sources)
+
+A source with `"render": "browser"` drives a real Chrome or Chromium instead of sending one request, for a chat page that only works in a browser and behind a login. For each question pampas opens the browser on a profile folder of its own for that source (in the state directory under `browser/`), loads `url`, types the prompt into the input box, sends it, waits until the answer has stopped changing, reads it and closes the browser. It does not hide that the browser is automated, and does not get around logins, captchas or blocks. It also puts the **account** you log in with at risk of being limited or suspended, not just your IP address; the `scrape add` prompt says so too.
+
+Status of the built-in sites (`pampas-cli scrape add <name>`), as tried on Linux with Google Chrome on 2026-10-23. The sites change their pages without notice, so a setup that worked can stop working.
+
+| Name | Site | Account | Status |
+|---|---|---|---|
+| `deepseek` | DeepSeek chat | DeepSeek | Works end to end. The stop button was not seen mid-answer, so there is no busy marker; answers that used web search contain stray citation numbers. |
+| `chatgpt` | ChatGPT | OpenAI | Works end to end. The "still writing" marker was not seen mid-answer. |
+| `copilot` | Microsoft 365 Copilot chat | Microsoft 365 | Works end to end (Enter does not send there, so the Send button is clicked). |
+| `duckduckgo` | DuckDuckGo AI chat (duck.ai) | none | Works end to end. The stop-button marker was not seen mid-answer. |
+| `google-ai-mode` | Google AI Mode | optional | Works end to end, but the answer includes citation labels, follow-up suggestions and a footer. |
+| `bing` | Bing AI Mode (Copilot Search) | optional | Works end to end (the answer is read from an iframe). |
+
+Example, DeepSeek's chat. It is built in, so the name alone is enough:
+
+```
+pampas-cli scrape add deepseek
+pampas-cli --scrape --only deepseek "your question"
+```
+
+1. `scrape add deepseek` uses the built-in setup (below), shows the risks, and waits for you to type `I understand` (or pass `--acknowledge` to skip the typing). The rest of its options still work if you want to change a part of it (for example `--daily-limit 50`).
+2. It then tells you that you need to log in once and opens an ordinary Chrome window on the source's own profile (not your everyday one, so you log in once more there). Log in until you see the chat, then **close the window**; two browsers cannot share a profile. The window has no automation switched on, because sign-in pages such as Google's refuse a browser that does. If that profile was used before, it skips the window and says so; run `pampas-cli scrape login deepseek` any time to log in again.
+3. `--only deepseek` asks just that source (see [Flags](#flags)); drop it to ask DeepSeek alongside the other providers.
+
+The built-in setup is the same as typing it out (selectors checked against the logged-in page on 2026-10-23; the site can change them at any time):
+
+```
+pampas-cli scrape add deepseek --url https://chat.deepseek.com/ --browser \
+  --input-selector 'textarea[placeholder="Message DeepSeek"]' \
+  --selector '.ds-markdown.ds-assistant-message-main-content' \
+  --settle-secs 6 --daily-limit 20
+```
+
+Any option you give wins over the built-in value. Giving `--url` turns the built-in setup off, since you are then describing a different address. The built-in sites are `deepseek`, `chatgpt`, `copilot`, `duckduckgo`, `google-ai-mode` and `bing`; any other name needs `--url`.
+
+Bing's AI Mode (Copilot Search) is built in as `bing` (`pampas-cli scrape add bing`, then `pampas-cli --scrape --only bing "your question"`). Typed out:
+
+```
+pampas-cli scrape add bing --url https://www.bing.com/copilotsearch --browser \
+  --input-selector 'textarea[id^="b_copilot_composer"]' \
+  --answer-frame '.frame_cont iframe' --selector '.gs_temp_ra' \
+  --settle-secs 5 --daily-limit 20
+```
+
+Bing draws the answer inside an iframe of the page (a `bing.com/search` page), so this setup uses `--answer-frame`; `.gs_temp_ra` is the answer's lead sentence and paragraph without the source cards beside it. The input box's `id` is matched by its start because its placeholder changes from "Ask anything" to "Ask a follow up" after the first question. Checked on one answer on 2026-10-23; the stop-button marker, a second question in a chat and a signed-out browser were not. Bing may show a verification page for automated use, which pampas will not solve; if you sign in, the question is recorded in that Microsoft account's activity.
+
+Google's AI Mode is built in as `google-ai-mode` (`pampas-cli scrape add google-ai-mode`, then `pampas-cli --scrape --only google-ai-mode "your question"`). Typed out:
+
+```
+pampas-cli scrape add google-ai-mode --url 'https://www.google.com/search?udm=50' --browser \
+  --input-selector 'textarea[aria-label="Ask anything"]' \
+  --selector '[data-container-id="main-col"]' \
+  --busy-selector 'button[aria-label="Stop"]' \
+  --settle-secs 5 --daily-limit 20
+```
+
+The answer selector was checked on a shared AI Mode page (Google's class names are scrambled, so it uses the `data-container-id="main-col"` attribute, which holds the answer without the "You said" line or the sources column); the live page, the stop button while an answer is being written, and a signed-out browser were **not** checked, so this is the least tested of the built-in sites. The input box has a hidden twin, and the first match (the visible one) is used. The login window may show a consent page or a sign-in prompt, and AI Mode may not be offered to a signed-out browser in your region; close the window once the "Ask anything" box is there. **Extra risk:** Google may show an "unusual traffic" page or a CAPTCHA, which pampas will not solve and which looks to pampas like a missing input box; it may block your IP address from Google Search for a while; and it may flag the account if you sign in. Its terms prohibit automated queries.
+
+DuckDuckGo's AI chat is built in as `duckduckgo` (`pampas-cli scrape add duckduckgo`, then `pampas-cli --scrape --only duckduckgo "your question"`). It needs no account. It uses `https://duck.ai/chat` directly, because the `duckduckgo.com/#chat` page moves to that address when a question is sent. Typed out:
+
+```
+pampas-cli scrape add duckduckgo --url https://duck.ai/chat --browser \
+  --input-selector 'textarea[name="user-prompt"]' \
+  --selector '[id*="-assistant-message-"] .space-y-4' \
+  --busy-selector 'button[aria-label="Stop generating"]:not([disabled])' \
+  --settle-secs 4 --daily-limit 20
+```
+
+The window that opens after `scrape add` is for one step: the first time, DuckDuckGo asks you to click **Continue** to accept its terms of service; click it and close the window (the setting is kept in the pampas profile, which is separate from your own browser). Selectors checked on 2026-10-23; the answer selector skips the "said GPT-… · 1s" header and "2nd opinion" button that the answer's container also holds, and the busy marker (the stop button, which is on the page but disabled when idle) was not seen while an answer was being written. DuckDuckGo limits requests per address and may ask for a check if it sees automated use.
+
+Microsoft 365 Copilot chat is built in as `copilot` (`pampas-cli scrape add copilot`, then `pampas-cli --scrape --only copilot "your question"`). It needs a Microsoft 365 account, which you log in to in the login window. Typed out:
+
+```
+pampas-cli scrape add copilot --url https://m365.cloud.microsoft/chat --browser \
+  --input-selector '#m365-chat-editor-target-element' \
+  --submit-selector 'button[type="submit"][aria-label="Send"]' \
+  --selector '[data-testid="markdown-reply"]' \
+  --settle-secs 6 --daily-limit 20
+```
+
+Selectors checked on 2026-10-23 against a signed-in chat, and run end to end (the input is a contenteditable `span`; Enter does not send there, so the Send button is clicked, which only exists once the box has text; there is no busy selector, so the answer is taken once it has been unchanged for `--settle-secs`). **Extra risk:** with a work or school account your organisation can log and review the chats, and its sign-in policies (conditional access, managed-device rules) may refuse the separate pampas browser profile or ask for extra verification each time; `scrape add copilot` says this before you acknowledge it. A personal Microsoft account may use a different page, which has not been checked.
+
+ChatGPT is built in the same way (`pampas-cli scrape add chatgpt`, then `pampas-cli --scrape --only chatgpt "your question"`). Typed out, it is:
+
+```
+pampas-cli scrape add chatgpt --url https://chatgpt.com/ --browser \
+  --input-selector 'div[contenteditable="true"][aria-label="Ask ChatGPT"]' \
+  --selector '[data-markdown-text-style="assistant-message"]' \
+  --busy-selector '[data-talvt-turn-state]:not([data-talvt-turn-state="complete"])' \
+  --settle-secs 5 --daily-limit 20
+```
+
+The input and answer selectors were checked against a logged-in chat on 2026-10-23. The busy marker (a turn that is not yet `complete`) was only seen in its finished state, not while an answer was being written; if it never matches, the answer is still taken once the text has been unchanged for `--settle-secs`. The input box is a rich-text editor (`ProseMirror`), not a textarea, and a logged-out page has a different one, so a missing input box usually means the login is gone: run `pampas-cli scrape login chatgpt`. **Extra risk:** OpenAI's terms prohibit automated use of ChatGPT and the site checks for automation more strictly than most, so the account can be limited or banned; `scrape add chatgpt` says this before you acknowledge it. A free account also has its own message limits, so `--daily-limit 20` is a ceiling, not a promise that 20 answers will come back.
+
+Notes for this example: the send step presses Enter (the send button has no stable label or class); there is no `--busy-selector` because the stop button was not seen while an answer was being written, so `--settle-secs 6` waits for the text to stop changing instead; answers that used web search contain stray citation numbers (`-`, `9`) where DeepSeek puts its markers; each question starts a new chat in your DeepSeek history. For another site, find the three selectors with your browser's inspector (right-click, Inspect, Copy selector); prefer readable class names or attributes over generated ones such as `_27c9245`, which change on every site update.
+
+| Field | Default | Meaning |
+|---|---|---|
+| `render` | `http` | `browser` for this mode. It takes `url`, `selector`, the fields below, and none of `method`, `body`, `json_pointer`. |
+| `input_selector` | required | CSS selector of the box the prompt is typed into (a `textarea` or an editable element). |
+| `selector` | required | CSS selector of the answer elements; the text of the last one is the answer, once a new one appears or it changes. |
+| `submit_selector` | press Enter | CSS selector of the send button; it is clicked once it is enabled. |
+| `busy_selector` | none | CSS selector of something visible only while the answer is being written, such as a stop button. The answer is not finished while it is visible. |
+| `answer_frame` | none | CSS selector of an iframe on the same site that holds the answer (as on Bing's AI Mode); `selector` and `busy_selector` are then looked up inside the last matching frame. A frame from another site cannot be read. |
+| `settle_secs` | `4` | Seconds the answer must stay unchanged to count as finished. |
+| `headless` | `false` | Run with no window. Many sites block this, so the default is a visible window that opens and closes for each question. |
+| `browser_path` | found on its own | Path to Chrome or Chromium (`google-chrome`, `chromium`, the usual macOS and Windows install paths are tried). |
+| `profile` | the source's name | Name of the profile folder that keeps the login. |
+
+The default `timeout` for a browser source is 120 seconds instead of 30. If the input box is not found, the error says to log in again (`pampas-cli scrape login <name>`), because the usual causes are an expired login, a check page, or a changed layout. Set the environment variable `PAMPAS_BROWSER_DEBUG` to see each step on stderr. Needs Chrome or Chromium installed; close the login window before asking, since two browsers cannot share one profile. The login window is an ordinary browser window with no automation switched on, so sites that refuse automated browsers at sign-in (such as Google) accept it. A site that also refuses the browser once pampas drives it cannot be used this way.
+
+A selector that matches nothing is reported as a failure (the layout changed, or the site sent a block page). Pages that need JavaScript to show the answer are not supported: pampas does not run a browser. To change a scrape source's address or request, remove it in the Sources tab and add it again from the command line.
+
 ## GUI (in development)
 
 A desktop app for the same providers, keys and settings, built with [Tauri](https://tauri.app) (`src-tauri`) around an interface written in plain HTML, CSS and TypeScript (`ui`, no framework). It uses the `pampas` library, so it shares the command line's config, keys, settings and usage files (see [File locations](#file-locations)).
@@ -405,6 +562,10 @@ With no list of sources yet, the Ask tab shows three first-run steps instead:
 **Sources.** The list as rows: switch sources on and off, edit one in place, reorder, remove, add from the built-in list or your own. Changes are kept until you press Save; the previous file is kept as `providers.json.bak`, and a list that does not validate is never written. “Edit the file as text” shows the raw JSON.
 
 ![The Sources tab: a list of services with their key status and daily usage](docs/screenshots/sources.png)
+
+![The Ask tab with More options open: the scraping option, its warning, and the web sites added from the command line](docs/screenshots/ask-scraping.png)
+
+Scrape sources (see [Scraping web sites](#scraping-web-sites); added only with `pampas-cli scrape add`) are left out unless **Also ask web sites that have no API (scraping)** is ticked under *More options* on the Ask tab, which also states the risk of an IP block or ban and lists the web sites added so far (name, address, and whether each is selected in the list of sources above it), or says how to add one.
 
 Editing one source is a plain-language form with a help line under every field; the less common options are folded under “More options”.
 
@@ -473,8 +634,9 @@ If a build never starts (`windows/out/build.request` stays and no `build.log` ap
 | Windows, in the VM | installer and `pampas-cli.exe` built with MSVC, three times, including a cold start of the stopped VM that the script started and stopped itself |
 | Windows, cross build | installer and `pampas-cli.exe` built with MinGW in a container |
 | macOS | not run: written from bobcat's process |
+| Browser scrape sources (`render: "browser"`) | the six built-in sites on Linux with Google Chrome (see the status table under [Scraping web sites](#scraping-web-sites)), and a local fake chat page including a streamed answer, an iframe answer and a button that ignores script clicks |
 
-Not tested yet: running either Windows installer, or the app, on a Windows machine; the macOS build; the AppImage package; the arm64 container build. See `TODO.md`.
+Not tested yet: browser scrape sources on macOS and Windows, with `--headless`, with Chromium instead of Chrome, and asked from the app's Ask tab; running either Windows installer, or the app, on a Windows machine; the macOS build; the AppImage package; the arm64 container build. See `TODO.md`.
 
 ### macOS
 

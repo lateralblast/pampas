@@ -4,7 +4,7 @@ resolver = "3"
 
 [package]
 name = "pampas"
-version = "0.5.2"
+version = "0.6.9"
 description = "Parallel AI Multi-provider Prompt Aggregator & Synthesizer"
 edition = "2024"
 
@@ -22,6 +22,8 @@ futures = "0.3.34"
 keyring = "4.2.0"
 reqwest = { version = "0.13.5", default-features = false, features = ["json", "rustls"] }
 rpassword = "7.5.4"
+scraper = "0.29.0"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"
-tokio = { version = "1.54.0", features = ["rt-multi-thread", "macros", "time", "process", "io-util"] }
+tokio = { version = "1.54.0", features = ["rt-multi-thread", "macros", "time", "process", "io-util", "net"] }
+tokio-tungstenite = { version = "0.30.0", default-features = false, features = ["connect"] }

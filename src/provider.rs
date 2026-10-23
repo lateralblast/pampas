@@ -5,6 +5,7 @@ use anyhow::{Context, anyhow};
 use serde::Deserialize;
 use serde_json::json;
 
+use crate::scrape::ScrapeConfig;
 use crate::usage::{LimitReached, SharedUsage};
 
 /// A free AI service that can answer a prompt.
@@ -284,6 +285,8 @@ pub fn parse_free_models(body: &str, exclude: &str) -> anyhow::Result<Vec<String
 pub enum ProviderEntry {
     OpenAi(ProviderConfig),
     AppleFm(AppleFmConfig),
+    /// A web site with no API, only used with `--scrape`.
+    Scrape(ScrapeConfig),
 }
 
 impl ProviderEntry {
@@ -291,6 +294,7 @@ impl ProviderEntry {
         match self {
             Self::OpenAi(c) => &c.name,
             Self::AppleFm(c) => &c.name,
+            Self::Scrape(c) => &c.name,
         }
     }
 
@@ -298,6 +302,7 @@ impl ProviderEntry {
         match self {
             Self::OpenAi(c) => c.synthesizer,
             Self::AppleFm(c) => c.synthesizer,
+            Self::Scrape(c) => c.synthesizer,
         }
     }
 
@@ -306,6 +311,7 @@ impl ProviderEntry {
         match self {
             Self::OpenAi(c) => c.enabled,
             Self::AppleFm(c) => c.enabled,
+            Self::Scrape(c) => c.enabled,
         }
     }
 }
@@ -407,7 +413,7 @@ impl Provider for AppleFm {
 }
 
 /// Parse the providers config file (a JSON array of entries). An entry's `"kind"` is `"openai"`
-/// (the default, a [`ProviderConfig`]) or `"apple_fm"` (an [`AppleFmConfig`]).
+/// (the default, a [`ProviderConfig`]), `"apple_fm"` (an [`AppleFmConfig`]) or `"scrape"` (a [`ScrapeConfig`]).
 pub fn parse_config(text: &str) -> anyhow::Result<Vec<ProviderEntry>> {
     let entries: Vec<serde_json::Value> = serde_json::from_str(text).context("invalid providers config")?;
     entries
@@ -417,7 +423,14 @@ pub fn parse_config(text: &str) -> anyhow::Result<Vec<ProviderEntry>> {
             match kind.as_str() {
                 "openai" => serde_json::from_value(v).map(ProviderEntry::OpenAi),
                 "apple_fm" => serde_json::from_value(v).map(ProviderEntry::AppleFm),
-                other => return Err(anyhow!("unknown provider kind `{other}` (expected `openai` or `apple_fm`)")),
+                "scrape" => {
+                    let cfg: ScrapeConfig = serde_json::from_value(v).context("invalid providers config")?;
+                    cfg.check()?;
+                    return Ok(ProviderEntry::Scrape(cfg));
+                }
+                other => {
+                    return Err(anyhow!("unknown provider kind `{other}` (expected `openai`, `apple_fm` or `scrape`)"));
+                }
             }
             .context("invalid providers config")
         })

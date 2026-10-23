@@ -67,6 +67,8 @@ export function mountAsk(root: HTMLElement, host: AskHost): void {
   const synth = h("select", { id: "synth", "aria-label": "Which source writes the reading" });
   const timeoutBox = h("input", { type: "number", id: "timeout", min: 1, max: 900, step: 1, inputMode: "numeric", placeholder: "each source's own" });
   const limitsBox = h("input", { type: "checkbox", id: "ignore-limits" });
+  const scrapeSlot = h("div", { class: "scrape-sites" });
+  const scrapeBox = h("input", { type: "checkbox", id: "scrape", "aria-describedby": "scrape-hint" });
   const askButton = h("button", { type: "submit", class: "primary", id: "ask-button" }, "Ask");
   const setBusy = (busy: boolean) => {
     // aria-disabled, not disabled: a disabled button drops keyboard focus in some web views.
@@ -94,6 +96,13 @@ export function mountAsk(root: HTMLElement, host: AskHost): void {
       { class: "advanced-body" },
       h("div", { class: "field" }, h("label", { for: "timeout" }, "Wait at most (seconds) for each source"), timeoutBox, h("p", { class: "hint" }, "Leave empty to use each source's own limit (30 seconds unless set under Sources). Large models on your own computer may need several minutes.")),
       h("div", { class: "check" }, limitsBox, h("label", { for: "ignore-limits" }, "Ignore the daily limits for this question")),
+      h(
+        "div",
+        { class: "field" },
+        h("div", { class: "check" }, scrapeBox, h("label", { for: "scrape" }, "Also ask web sites that have no API (scraping)")),
+        h("p", { id: "scrape-hint", class: "hint" }, "Off by default. Sends automated requests to the web sites already added as scrape sources (they can only be added with pampas-cli scrape add, which asks you to acknowledge the risks). Sites may block or ban your IP address for this, and it may break their terms of use. Use it sparingly, at your own risk."),
+        scrapeSlot,
+      ),
     ),
   );
 
@@ -139,6 +148,7 @@ export function mountAsk(root: HTMLElement, host: AskHost): void {
           saveOverrides(overrides);
           renderSources();
           renderSynth();
+          renderScrape();
         },
       });
       const limit = limitReached(p) ? h("span", { class: "tag bad" }, icon("warn"), "today's free requests used up") : null;
@@ -182,12 +192,39 @@ export function mountAsk(root: HTMLElement, host: AskHost): void {
     );
   }
 
+  /** The web sites added with `pampas-cli scrape add`, listed under the scraping option. */
+  function renderScrape(): void {
+    clear(scrapeSlot);
+    const sites = state.providers.filter((p) => p.kind === "scrape");
+    if (!sites.length) {
+      scrapeSlot.append(h("p", { class: "hint" }, "No web sites added yet. Add one in a terminal with pampas-cli scrape add."));
+      return;
+    }
+    const chosen = new Set(selectedNames());
+    scrapeSlot.append(
+      h("p", { class: "hint scrape-title" }, "Web sites added from the command line:"),
+      h(
+        "ul",
+        { class: "scrape-list" },
+        ...sites.map((p) =>
+          h("li", null, h("span", { class: "sname" }, p.name), h("span", { class: "smodel" }, hostOf(p.base_url ?? "")), h("span", { class: "muted" }, chosen.has(p.name) ? " selected above" : " not selected above")),
+        ),
+      ),
+    );
+  }
+
+  /** The host part of an address, for a quiet second line. */
+  function hostOf(url: string): string {
+    return /^https?:\/\/([^/]+)/i.exec(url)?.[1] ?? url;
+  }
+
   function setAll(on: boolean): void {
     overrides = {};
     for (const p of state.providers) overrides[p.name] = on;
     saveOverrides(overrides);
     renderSources();
     renderSynth();
+    renderScrape();
   }
 
   function renderSynth(): void {
@@ -282,6 +319,7 @@ export function mountAsk(root: HTMLElement, host: AskHost): void {
       synthesizer: mergeBox.checked && synth.value ? synth.value : null,
       timeout: timeout > 0 ? Math.round(timeout) : null,
       ignore_limits: limitsBox.checked,
+      scrape: scrapeBox.checked,
     };
     const current = newEdition(question, order, models, request.merge);
     edition = current;
@@ -373,9 +411,11 @@ export function mountAsk(root: HTMLElement, host: AskHost): void {
     renderOnboardingSlot();
     renderSources();
     renderSynth();
+    renderScrape();
   });
   renderOnboardingSlot();
   renderSources();
   renderSynth();
+  renderScrape();
   void readyProviders;
 }

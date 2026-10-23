@@ -19,6 +19,7 @@ export interface SourcesHost {
 const str = (v: unknown): string => (typeof v === "string" ? v : "");
 const num = (v: unknown): string => (typeof v === "number" ? String(v) : "");
 const isApple = (e: ConfigEntry): boolean => e.kind === "apple_fm";
+const isScrape = (e: ConfigEntry): boolean => e.kind === "scrape";
 
 /** The host part of an address, for a quiet second line. */
 function hostOf(url: string): string {
@@ -135,6 +136,7 @@ export function mountSources(root: HTMLElement, host: SourcesHost): void {
   function editor(i: number): HTMLElement {
     const e = draft[i] ?? {};
     const apple = isApple(e);
+    const scrape = isScrape(e);
     const field = (id: string, label: string, value: string, hint: string, opts: { type?: string; required?: boolean; placeholder?: string } = {}) =>
       h(
         "div",
@@ -146,10 +148,12 @@ export function mountSources(root: HTMLElement, host: SourcesHost): void {
     const form = h("form", { class: "editor", novalidate: true });
     const err = h("p", { class: "field-error", role: "alert" });
     append(form, [
-      h("h3", { class: "editor-title" }, apple ? "On-device source" : "Source details"),
+      h("h3", { class: "editor-title" }, apple ? "On-device source" : scrape ? "Web site source" : "Source details"),
       field("name", "Name", str(e.name), "A short name shown in answers, for example groq. Each source needs a different one.", { required: true }),
       apple
         ? field("command", "Helper program", str(e.command), "The program that talks to Apple Intelligence. Leave empty for the default, pampas-apple-fm.", { placeholder: "pampas-apple-fm" })
+        : scrape
+        ? h("p", { class: "hint" }, `This source scrapes ${hostOf(str(e.url)) || "a web site"}. It is only asked when scraping is switched on under More options on the Ask page. Scrape sources can only be added with “pampas-cli scrape add”, which asks you to acknowledge the risks; their address, request and selector cannot be changed here, only their timeout, daily limit and whether they are on.`)
         : h(
             "div",
             { class: "editor-grid" },
@@ -159,6 +163,13 @@ export function mountSources(root: HTMLElement, host: SourcesHost): void {
           ),
       apple
         ? null
+        : scrape
+        ? h(
+            "div",
+            { class: "editor-grid" },
+            field("timeout", "Wait at most (seconds)", num(e.timeout), "How long to wait for this site before giving up. The default is 30.", { type: "number" }),
+            field("daily_limit", "Daily limit (requests)", num(e.daily_limit), "Stop asking this site after this many requests per day, to lower the chance of being blocked. Empty means no limit.", { type: "number" }),
+          )
         : h(
             "details",
             { class: "advanced", open: ["chat_path", "fallback", "daily_limit", "usage_group", "timeout"].some((k) => e[k] !== undefined) },
@@ -193,6 +204,7 @@ export function mountSources(root: HTMLElement, host: SourcesHost): void {
         h("button", { type: "button", onclick: () => { editing = null; if (!str(e.name) && !str(e.base_url) && !str(e.model)) draft.splice(i, 1); changed(); } }, "Cancel"),
       ),
     ]);
+    if (scrape) (form.elements.namedItem("name") as HTMLInputElement).readOnly = true;
     form.addEventListener("submit", (ev) => {
       ev.preventDefault();
       const get = (n: string) => (form.elements.namedItem(n) as HTMLInputElement | HTMLSelectElement | null)?.value.trim() ?? "";
@@ -200,7 +212,7 @@ export function mountSources(root: HTMLElement, host: SourcesHost): void {
       const problems: string[] = [];
       if (!name) problems.push("Give the source a name.");
       if (name && draft.some((o, j) => j !== i && str(o.name) === name)) problems.push(`Another source is already called ${name}.`);
-      if (!apple) {
+      if (!apple && !scrape) {
         if (!get("base_url")) problems.push("Enter the service address.");
         if (!get("model")) problems.push("Enter the model.");
       }
@@ -217,7 +229,10 @@ export function mountSources(root: HTMLElement, host: SourcesHost): void {
       const setText = (k: string) => (get(k) ? (next[k] = get(k)) : delete next[k]);
       const setNum = (k: string) => (get(k) ? (next[k] = Number(get(k))) : delete next[k]);
       if (apple) setText("command");
-      else {
+      else if (scrape) {
+        setNum("timeout");
+        setNum("daily_limit");
+      } else {
         for (const k of ["base_url", "model", "api_key_env", "usage_group", "chat_path"]) setText(k);
         setNum("timeout");
         setNum("daily_limit");
@@ -241,6 +256,7 @@ export function mountSources(root: HTMLElement, host: SourcesHost): void {
     const p = info(name);
     const on = e.enabled !== false;
     const apple = isApple(e);
+    const scrape = isScrape(e);
     const tags: Node[] = [];
     if (p) {
       const t = p.key_status;
@@ -257,11 +273,11 @@ export function mountSources(root: HTMLElement, host: SourcesHost): void {
       h(
         "div",
         { class: "row" },
-        h("div", { class: "gutter" }, h("span", { class: "sig sig-lg", "aria-hidden": "true" }, siglum(i)), h("h3", { class: "wname" }, name), h("p", { class: "gmeta" }, apple ? "on this Mac" : breakable(hostOf(str(e.base_url))))),
+        h("div", { class: "gutter" }, h("span", { class: "sig sig-lg", "aria-hidden": "true" }, siglum(i)), h("h3", { class: "wname" }, name), h("p", { class: "gmeta" }, apple ? "on this Mac" : breakable(hostOf(str(scrape ? e.url : e.base_url))))),
         h(
           "div",
           { class: "body" },
-          h("p", { class: "smodel-line" }, apple ? "Apple Intelligence, on this device" : str(e.model) || "no model set"),
+          h("p", { class: "smodel-line" }, apple ? "Apple Intelligence, on this device" : scrape ? "Scrapes a web site (only with scraping on)" : str(e.model) || "no model set"),
           h("div", { class: "tags" }, ...tags),
           h(
             "div",
@@ -304,7 +320,7 @@ export function mountSources(root: HTMLElement, host: SourcesHost): void {
         h("button", { type: "button", onclick: () => add(blankEntry("apple_fm"), true) }, icon("plus"), "Apple Intelligence on this Mac"),
       ),
       fresh.length
-        ? h("ul", { class: "example-list" }, ...fresh.map((e) => h("li", null, h("span", { class: "sname" }, str(e.name)), h("span", { class: "smodel" }, isApple(e) ? "on this Mac" : str(e.model)), h("span", { class: "muted" }, e.api_key_env ? ` needs ${str(e.api_key_env)}` : " needs no key"), h("button", { type: "button", class: "quiet", onclick: () => add(e) }, icon("plus"), "Add", h("span", { class: "visually-hidden" }, ` ${str(e.name)}`)))))
+        ? h("ul", { class: "example-list" }, ...fresh.map((e) => h("li", null, h("span", { class: "sname" }, str(e.name)), h("span", { class: "smodel" }, isApple(e) ? "on this Mac" : isScrape(e) ? "scrapes a web site" : str(e.model)), h("span", { class: "muted" }, e.api_key_env ? ` needs ${str(e.api_key_env)}` : " needs no key"), h("button", { type: "button", class: "quiet", onclick: () => add(e) }, icon("plus"), "Add", h("span", { class: "visually-hidden" }, ` ${str(e.name)}`)))))
         : h("p", { class: "muted" }, "Every built-in source is already in your list."),
       h("button", { type: "button", class: "linklike", onclick: () => { adding = false; render(); } }, "Close"),
     );

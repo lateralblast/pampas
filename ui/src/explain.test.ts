@@ -26,3 +26,14 @@ test("skipped sources are explained and name their fix", () => {
   assert.match(setting?.plain.summary ?? "", /CLOUDFLARE_ACCOUNT_ID/);
   assert.equal(explainSkip("only groq answered; nothing to merge"), null);
 });
+
+test("scraping failures and skips are explained", () => {
+  const blocked = explainFailure("HTTP 429 Too Many Requests (the site may be rate limiting or blocking this address: stop asking it for a while)");
+  assert.match(blocked.summary, /may be blocking this address/);
+  assert.match(explainFailure("the selector matched no text: the page layout may have changed").summary, /without an answer/);
+  assert.match(explainFailure("the input box was not found on DeepSeek (https://x/): you may need to log in").summary, /log in again/);
+  assert.match(explainFailure("no Chrome or Chromium found: install one").summary, /browser/);
+  const off = explainSkip("skipping provider: site: it scrapes a web site, which is off unless you ask for it (--scrape)");
+  assert.equal(off?.provider, "site");
+  assert.match(off?.plain.summary ?? "", /scraping is off/);
+});

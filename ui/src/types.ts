@@ -24,7 +24,7 @@ export interface HistorySummary {
 
 export interface ProviderInfo {
   name: string;
-  kind: "openai" | "apple_fm";
+  kind: "openai" | "apple_fm" | "scrape";
   model: string | null;
   base_url: string | null;
   enabled: boolean;
@@ -61,6 +61,7 @@ export interface AskRequest {
   synthesizer: string | null;
   timeout: number | null;
   ignore_limits: boolean;
+  scrape: boolean;
 }
 
 export interface Answer {

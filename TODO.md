@@ -4,6 +4,10 @@ Status: `[ ]` open, `[~]` in progress, `[x]` done.
 
 ## Open
 
+- [ ] Browser scrape sources, still untested: macOS and Windows (finding Chrome, the profile folders, the DevTools port file), `--headless` on a real site, Chromium (the snap build on Linux) instead of Google Chrome, asking a scrape source from the app's Ask tab and seeing the scraping option and site list in the real app (only the mock backend was screenshotted), and a long answer on `chatgpt`, `duckduckgo` and `google-ai-mode` whose busy markers were never seen mid-answer.
+- [ ] `google-ai-mode`: the answer text includes citation labels (`Wikipedia +3`), follow-up suggestions and the "AI can make mistakes" footer; narrow the selector or add a way to trim it, after looking at a live answer's markup.
+- [ ] Built-in site setups break when a site changes its page: consider a `pampas-cli scrape check <name>` that loads the page and reports which selector no longer matches.
+
 - [ ] Run the Windows installers on a real Windows machine (the VM-built MSVC one and the MinGW one), and the app and `pampas-cli.exe` in them: the keychain (Credential Manager), file locations under `%APPDATA%`, the save dialog, the WebView2 runtime on Windows 10. Nothing built for Windows has been run on Windows.
 - [ ] Try the macOS build on a Mac: `./build.sh --target mac` (and `--arch arm64|x64|universal`), the ad hoc signature, the keychain, the local-network permission for a LAN Ollama server, and Gatekeeper on first open. Written from bobcat's process but never run.
 - [ ] Try the Linux AppImage (`--package appimage` or `all`) and the arm64 container build (`--docker --arch arm64`), and install the built `.deb` and `.rpm` on clean machines.
@@ -27,6 +31,11 @@ Status: `[ ]` open, `[~]` in progress, `[x]` done.
 - [ ] Support non-OpenAI-compatible services if any chosen one needs it. Parked 2026-10-23: no chosen service needs it. When one does, prefer a generic `kind: "http"` adapter configured in JSON (URL, headers, request body template with `${prompt}`/`${model}`, response path to the text) over a Rust implementation per service, and build it against that real service. Free tiers only; ask before adding a paid one.
 
 ## Done
+
+- [x] Browser scrape sources (`render: "browser"`, `pampas-cli scrape add --browser`, `scrape login`) driving Chrome through its DevTools protocol (0.5.5). Tested against a local fake chat page in headless Chrome on Linux. Not tried against a real site, on macOS or on Windows.
+
+- [x] Scrape sources can only be added from the command line, with a typed acknowledgement of the risks; the app shows and switches them but refuses to add or rewrite them (0.5.4).
+- [x] `--scrape` and `kind: "scrape"` providers for web sites without APIs (0.5.3). Still open: try it on real sites you choose (none are built in), a browser-driven variant for pages that need JavaScript, (the app edits only a scrape source's timeout and daily limit by design).
 
 - [x] Installer builds (0.5.0): `build.sh` with Linux native and container, a Windows 11 VM and a MinGW container for Windows, and bobcat's macOS process copied; Linux `.deb`/`.rpm`, a container `.deb`, and Windows installers from both Windows routes were built and the VM route cold-start was verified.
 - [x] History tab: finished questions saved automatically to `history.json` (library `pampas::history`), listed by day, opened in full, asked again, deleted singly or all at once, filtered by question, with a switch to stop saving; the old local-storage history is moved in once (0.4.9).
