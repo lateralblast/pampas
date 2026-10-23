@@ -62,6 +62,7 @@ export interface AskRequest {
   timeout: number | null;
   ignore_limits: boolean;
   scrape: boolean;
+  headless: boolean;
 }
 
 export interface Answer {

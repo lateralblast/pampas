@@ -1,7 +1,7 @@
 {
   "name": "pampas-ui",
   "private": true,
-  "version": "0.7.4",
+  "version": "0.7.6",
   "type": "module",
   "description": "Front end of the pampas desktop app: plain HTML, CSS and TypeScript, no framework",
   "scripts": {

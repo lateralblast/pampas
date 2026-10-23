@@ -296,6 +296,8 @@ pub struct AskRequest {
     pub ignore_limits: bool,
     /// Allow providers that scrape web sites (off by default: risks an IP block or ban).
     pub scrape: bool,
+    /// Run browser scrape sources without a window for this question (many sites block that).
+    pub headless: bool,
 }
 
 /// One provider's answer or failure.
@@ -354,7 +356,7 @@ pub async fn ask(
     let settings = Settings::load(&loc.settings)?;
     let usage = load_usage(loc.usage.clone());
     let client = reqwest::Client::new();
-    let options = BuildOptions { enable: &request.enable, disable: &request.disable, ignore_limits: request.ignore_limits, scrape: request.scrape };
+    let options = BuildOptions { enable: &request.enable, disable: &request.disable, ignore_limits: request.ignore_limits, scrape: request.scrape, headless: request.headless };
     let built = build_providers(entries(loc)?, &settings, store, &usage, &client, &options)?;
     anyhow::ensure!(
         !built.providers.is_empty(),

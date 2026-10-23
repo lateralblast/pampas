@@ -73,6 +73,10 @@ struct Cli {
     #[arg(long)]
     scrape: bool,
 
+    /// Run browser scrape sources without a window for this run (many sites block that); needs --scrape
+    #[arg(long)]
+    headless: bool,
+
     /// Request-count file (default: ~/.local/state/pampas/usage.json)
     #[arg(long, global = true, value_name = "PATH")]
     usage_file: Option<PathBuf>,
@@ -703,7 +707,7 @@ async fn main() -> anyhow::Result<()> {
         Some(name) => pampas::engine::only_selection(&entries, name)?,
         None => (cli.enable.clone(), cli.disable.clone()),
     };
-    let options = BuildOptions { enable: &enable, disable: &disable, ignore_limits: cli.ignore_limits, scrape: cli.scrape };
+    let options = BuildOptions { enable: &enable, disable: &disable, ignore_limits: cli.ignore_limits, scrape: cli.scrape, headless: cli.headless };
     if cli.scrape {
         eprintln!("warning: {}", pampas::scrape::SCRAPE_WARNING);
     }

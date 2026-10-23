@@ -68,7 +68,17 @@ export function mountAsk(root: HTMLElement, host: AskHost): void {
   const timeoutBox = h("input", { type: "number", id: "timeout", min: 1, max: 900, step: 1, inputMode: "numeric", placeholder: "each source's own" });
   const limitsBox = h("input", { type: "checkbox", id: "ignore-limits" });
   const scrapeSlot = h("div", { class: "scrape-sites" });
-  const scrapeBox = h("input", { type: "checkbox", id: "scrape", "aria-describedby": "scrape-hint" });
+  const headlessBox = h("input", { type: "checkbox", id: "headless", "aria-describedby": "headless-hint" });
+  const scrapeBox = h("input", {
+    type: "checkbox",
+    id: "scrape",
+    "aria-describedby": "scrape-hint",
+    onchange: () => {
+      renderSources();
+      renderSynth();
+      renderScrape();
+    },
+  });
   const askButton = h("button", { type: "submit", class: "primary", id: "ask-button" }, "Ask");
   const setBusy = (busy: boolean) => {
     // aria-disabled, not disabled: a disabled button drops keyboard focus in some web views.
@@ -102,6 +112,12 @@ export function mountAsk(root: HTMLElement, host: AskHost): void {
         h("div", { class: "check" }, scrapeBox, h("label", { for: "scrape" }, "Also ask web sites that have no API (scraping)")),
         h("p", { id: "scrape-hint", class: "hint" }, "Off by default. Sends automated requests to the web sites already added as scrape sources (they can only be added with pampas-cli scrape add, which asks you to acknowledge the risks). Sites may block or ban your IP address for this, and it may break their terms of use. Use it sparingly, at your own risk."),
         scrapeSlot,
+        h(
+          "div",
+          { class: "field scrape-headless" },
+          h("div", { class: "check" }, headlessBox, h("label", { for: "headless" }, "Run the browser without a window (headless)")),
+          h("p", { id: "headless-hint", class: "hint" }, "Off by default: each question opens a browser window and closes it again. Headless is quieter, but many sites detect it and refuse, or show a check that cannot be answered. Only applies to web sites that use a browser."),
+        ),
       ),
     ),
   );
@@ -126,8 +142,12 @@ export function mountAsk(root: HTMLElement, host: AskHost): void {
 
   // ---- sources ----
 
+  const isScrape = (p: ProviderInfo): boolean => p.kind === "scrape";
+
+  /** A scrape site is asked only when scraping is switched on and it has been ticked: never by default. */
   const isSelected = (p: ProviderInfo): boolean => {
     if (notReady(p)) return false;
+    if (isScrape(p)) return scrapeBox.checked && (overrides[p.name] ?? false);
     return overrides[p.name] ?? p.enabled;
   };
 
@@ -136,7 +156,7 @@ export function mountAsk(root: HTMLElement, host: AskHost): void {
   function renderSources(): void {
     const sigla = siglaOf();
     const names = selectedNames();
-    const items = state.providers.map((p) => {
+    const items = state.providers.filter((p) => !isScrape(p)).map((p) => {
       const problem = notReady(p);
       const checkbox = h("input", {
         type: "checkbox",
@@ -192,24 +212,42 @@ export function mountAsk(root: HTMLElement, host: AskHost): void {
     );
   }
 
-  /** The web sites added with `pampas-cli scrape add`, listed under the scraping option. */
+  /** The web sites added with `pampas-cli scrape add`, each ticked on its own, under the scraping option. */
   function renderScrape(): void {
     clear(scrapeSlot);
-    const sites = state.providers.filter((p) => p.kind === "scrape");
+    const sites = state.providers.filter(isScrape);
+    headlessBox.disabled = !scrapeBox.checked;
     if (!sites.length) {
       scrapeSlot.append(h("p", { class: "hint" }, "No web sites added yet. Add one in a terminal with pampas-cli scrape add."));
       return;
     }
-    const chosen = new Set(selectedNames());
+    const on = scrapeBox.checked;
+    headlessBox.disabled = !on;
+    const items = sites.map((p) => {
+      const problem = notReady(p);
+      const box = h("input", {
+        type: "checkbox",
+        id: `scrape-src-${p.name}`,
+        checked: isSelected(p),
+        disabled: !on || Boolean(problem),
+        onchange: (ev: Event) => {
+          overrides[p.name] = (ev.currentTarget as HTMLInputElement).checked;
+          saveOverrides(overrides);
+          renderSources();
+          renderSynth();
+          renderScrape();
+        },
+      });
+      const limit = p.daily_limit !== null ? h("span", { class: "muted" }, ` ${p.used} of ${p.daily_limit} used today`) : null;
+      return h(
+        "li",
+        { class: on ? "source" : "source off" },
+        h("div", { class: "check" }, box, h("label", { for: `scrape-src-${p.name}` }, h("span", { class: "sname" }, p.name), h("span", { class: "smodel" }, hostOf(p.base_url ?? "")), limit)),
+      );
+    });
     scrapeSlot.append(
-      h("p", { class: "hint scrape-title" }, "Web sites added from the command line:"),
-      h(
-        "ul",
-        { class: "scrape-list" },
-        ...sites.map((p) =>
-          h("li", null, h("span", { class: "sname" }, p.name), h("span", { class: "smodel" }, hostOf(p.base_url ?? "")), h("span", { class: "muted" }, chosen.has(p.name) ? " selected above" : " not selected above")),
-        ),
-      ),
+      h("p", { class: "hint scrape-title", id: "scrape-sites-title" }, on ? "Tick the web sites to ask (added from the command line):" : "Web sites added from the command line (tick scraping above to choose which to ask):"),
+      h("ul", { class: "scrape-list", "aria-labelledby": "scrape-sites-title" }, ...items),
     );
   }
 
@@ -220,7 +258,7 @@ export function mountAsk(root: HTMLElement, host: AskHost): void {
 
   function setAll(on: boolean): void {
     overrides = {};
-    for (const p of state.providers) overrides[p.name] = on;
+    for (const p of state.providers) if (!isScrape(p)) overrides[p.name] = on;
     saveOverrides(overrides);
     renderSources();
     renderSynth();
@@ -320,6 +358,7 @@ export function mountAsk(root: HTMLElement, host: AskHost): void {
       timeout: timeout > 0 ? Math.round(timeout) : null,
       ignore_limits: limitsBox.checked,
       scrape: scrapeBox.checked,
+      headless: scrapeBox.checked && headlessBox.checked,
     };
     const current = newEdition(question, order, models, request.merge);
     edition = current;

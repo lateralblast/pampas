@@ -2,7 +2,7 @@
 
 # pampas
 
-Version: 0.7.4
+Version: 0.7.6
 
 **pampas** is short for Parallel AI Multi-provider Prompt Aggregator & Synthesizer: a command-line tool and desktop app that send one prompt to several free AI services in parallel and merge the results.
 
@@ -152,6 +152,7 @@ Store each key with `pampas-cli key set <NAME>` or export it as an environment v
 - `--show-answers`: with `--merge`, also print each provider's own answer after the consolidated one.
 - `-f, --format <text|markdown|md|json>`: output format, see [Output formats](#output-formats) (default `markdown`).
 - `-o, --output <path>`: write the result to this file instead of stdout, overwriting it. A `wrote <path>` note goes to stderr. If the file cannot be written, the result is printed to stdout instead and `pampas` exits with an error.
+- `--headless`: run browser scrape sources without a window for this run, whatever their entries say (needs `--scrape`; many sites refuse a browser with no window, so the default is a visible window). Sources that are not browser sources are unaffected.
 - `--ignore-limits`: ignore every `daily_limit` for this run; requests are still counted.
 - `scrape add|remove|list|login` (a command, see [Scraping web sites](#scraping-web-sites)) adds, removes, lists or logs in to scrape sources.
 - `--scrape`: also ask the `"kind": "scrape"` entries, web sites that have no API (see [Scraping web sites](#scraping-web-sites)). Off by default; prints a warning that your IP address can be blocked or banned. Without it those entries are skipped with a warning.
@@ -563,9 +564,9 @@ With no list of sources yet, the Ask tab shows three first-run steps instead:
 
 ![The Sources tab: a list of services with their key status and daily usage](docs/screenshots/sources.png)
 
-![The Ask tab with More options open: the scraping option, its warning, and the web sites added from the command line](docs/screenshots/ask-scraping.png)
+![The Ask tab with More options open: the scraping option ticked, its warning, and the web sites added from the command line, each with its own checkbox](docs/screenshots/ask-scraping.png)
 
-Scrape sources (see [Scraping web sites](#scraping-web-sites); added only with `pampas-cli scrape add`) are left out unless **Also ask web sites that have no API (scraping)** is ticked under *More options* on the Ask tab, which also states the risk of an IP block or ban and lists the web sites added so far (name, address, and whether each is selected in the list of sources above it), or says how to add one.
+Scrape sources (see [Scraping web sites](#scraping-web-sites); added only with `pampas-cli scrape add`) are not in the main list of sources. They are left out unless **Also ask web sites that have no API (scraping)** is ticked under *More options* on the Ask tab, and then only the ones you tick individually in the list under it are asked (none is ticked by default, so switching scraping on never asks every site at once; the ticks are remembered, the scraping switch is not). Below the list, **Run the browser without a window (headless)** is off by default and greyed out until scraping is ticked; it applies to the sources that use a browser for that question only, which also states the risk of an IP block or ban and lists the web sites added so far (name, address, and whether each is selected in the list of sources above it), or says how to add one.
 
 Editing one source is a plain-language form with a help line under every field; the less common options are folded under “More options”.
 

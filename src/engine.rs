@@ -201,6 +201,9 @@ pub struct BuildOptions<'a> {
     pub ignore_limits: bool,
     /// Allow providers that scrape web sites (`--scrape`); without it they are skipped with a warning.
     pub scrape: bool,
+    /// Run browser scrape sources without a window for this run, whatever their entries say (`--headless`).
+    /// Many sites refuse a browser with no window.
+    pub headless: bool,
 }
 
 /// The `enable` and `disable` lists that make a run use only the provider called `name`: it is turned on
@@ -267,6 +270,7 @@ pub fn build_providers(
                 }
             }
             ProviderEntry::Scrape(cfg) => {
+                let cfg = cfg.with_headless(options.headless);
                 if !options.scrape {
                     built.warnings.push(format!(
                         "skipping provider: {}: it scrapes a web site, which is off unless you ask for it (--scrape)",
@@ -526,7 +530,7 @@ mod tests {
     fn building_skips_unusable_providers_with_a_warning_and_never_prints() {
         let usage: SharedUsage = Arc::new(Mutex::new(Usage::in_memory("2026-01-01")));
         let client = reqwest::Client::new();
-        let opts = BuildOptions { enable: &[], disable: &[], ignore_limits: false, scrape: false };
+        let opts = BuildOptions { enable: &[], disable: &[], ignore_limits: false, scrape: false, headless: false };
         // No account id and no key: "a" is skipped for the id first; "local" runs; "off" is disabled.
         let built = build_providers(entries(), &Settings::default(), &Fake(None), &usage, &client, &opts).unwrap();
         let names: Vec<&str> = built.providers.iter().map(|p| p.name()).collect();
@@ -534,10 +538,10 @@ mod tests {
         assert_eq!(built.warnings.len(), 1);
         assert!(built.warnings[0].starts_with("skipping provider:") && built.warnings[0].contains("PAMPAS_ENGINE_TEST_ACCT"));
         // Turning on a disabled entry, and an unknown name is an error.
-        let opts = BuildOptions { enable: &["off".to_string()], disable: &[], ignore_limits: false, scrape: false };
+        let opts = BuildOptions { enable: &["off".to_string()], disable: &[], ignore_limits: false, scrape: false, headless: false };
         let built = build_providers(entries(), &Settings::default(), &Fake(None), &usage, &client, &opts).unwrap();
         assert_eq!(built.providers.len(), 2);
-        let opts = BuildOptions { enable: &["nope".to_string()], disable: &[], ignore_limits: false, scrape: false };
+        let opts = BuildOptions { enable: &["nope".to_string()], disable: &[], ignore_limits: false, scrape: false, headless: false };
         assert!(build_providers(entries(), &Settings::default(), &Fake(None), &usage, &client, &opts).is_err());
     }
 
@@ -559,7 +563,7 @@ mod tests {
         let usage: SharedUsage = Arc::new(Mutex::new(Usage::in_memory("2026-01-01")));
         let client = reqwest::Client::new();
         let build = |scrape| {
-            let opts = BuildOptions { enable: &[], disable: &[], ignore_limits: false, scrape };
+            let opts = BuildOptions { enable: &[], disable: &[], ignore_limits: false, scrape, headless: false };
             build_providers(parse_config(cfg).unwrap(), &Settings::default(), &Fake(None), &usage, &client, &opts).unwrap()
         };
         let off = build(false);

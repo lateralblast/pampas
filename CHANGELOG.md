@@ -4,6 +4,18 @@ Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.7.6] - 2026-10-23
+
+### Added
+
+- A headless switch for a run, off by default: `--headless` on the command line, and **Run the browser without a window (headless)** under the scraping option on the Ask tab (greyed out until scraping is ticked). It makes every browser scrape source run with no window for that question, whatever its entry says, and does nothing for sources that are not browser sources. Many sites detect or refuse a headless browser, so the default stays a visible window.
+
+## [0.7.5] - 2026-10-23
+
+### Changed
+
+- On the Ask tab, each web site listed under *Also ask web sites that have no API (scraping)* now has its own checkbox (greyed out until scraping is ticked), with how many of its daily requests are used. None is ticked by default, so switching scraping on does not ask every site at once; the ticks are remembered, the scraping switch is not. Scrape sites no longer appear in the main "sources will be asked" list, and "Select all that are ready" does not select them.
+
 ## [0.7.4] - 2026-10-23
 
 ### Added

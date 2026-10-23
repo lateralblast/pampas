@@ -394,6 +394,15 @@ impl ScrapeConfig {
         Ok(())
     }
 
+    /// With `on`, a browser source runs without a window whatever its entry says (a per-run switch);
+    /// without it, and for a source that is not a browser source, the entry is unchanged.
+    pub fn with_headless(mut self, on: bool) -> Self {
+        if on && self.render == Render::Browser {
+            self.headless = true;
+        }
+        self
+    }
+
     /// The entry's own timeout, or the longer default for a browser source.
     fn timeout_for(&self) -> Option<u64> {
         self.timeout.or((self.render == Render::Browser).then_some(BROWSER_TIMEOUT_SECS))
@@ -610,6 +619,20 @@ mod tests {
         assert!(add_entry(&path, bad).is_err());
         assert_eq!(std::fs::read_to_string(&path).unwrap(), text, "a refused entry leaves the file alone");
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn headless_can_be_forced_for_a_run_on_browser_sources_only() {
+        let browser = r#"{"name":"b","render":"browser","url":"u","input_selector":"t","selector":".a"}"#;
+        let plain = r#"{"name":"p","url":"u","selector":"p"}"#;
+        let cfg = |json: &str| serde_json::from_str::<ScrapeConfig>(json).unwrap();
+        assert!(!cfg(browser).headless);
+        assert!(!cfg(browser).with_headless(false).headless);
+        assert!(cfg(browser).with_headless(true).headless);
+        // A plain request has no window to hide, and forcing it would make its entry invalid.
+        let forced = cfg(plain).with_headless(true);
+        assert!(!forced.headless);
+        forced.check().unwrap();
     }
 
     #[test]
