@@ -9,10 +9,9 @@ Status: `[ ]` open, `[~]` in progress, `[x]` done.
 - [ ] Built-in site setups break when a site changes its page: consider a `pampas-cli scrape check <name>` that loads the page and reports which selector no longer matches.
 
 - [ ] Run the Windows installers on a real Windows machine (the VM-built MSVC one and the MinGW one), and the app and `pampas-cli.exe` in them: the keychain (Credential Manager), file locations under `%APPDATA%`, the save dialog, the WebView2 runtime on Windows 10. Nothing built for Windows has been run on Windows.
-- [ ] Try the macOS build on a Mac: `./build.sh --target mac` (and `--arch arm64|x64|universal`), the ad hoc signature, the keychain, the local-network permission for a LAN Ollama server, and Gatekeeper on first open. Written from bobcat's process but never run.
+- [ ] Run the macOS app built on a Mac (the arm64 `.dmg` builds and is signed ad hoc, 0.5.3): the keychain, the local-network permission for a LAN Ollama server, Gatekeeper on first open, WKWebView rendering; and build `--arch x64` and `--arch universal`.
 - [ ] Try the Linux AppImage (`--package appimage` or `all`) and the arm64 container build (`--docker --arch arm64`), and install the built `.deb` and `.rpm` on clean machines.
 - [ ] Windows VM: the first install stopped after the Rust step (as bobcat's did) and the later tools were installed by running `setup.cmd` through the watcher; the cause is unknown (the log shows nothing between Rust and the end). A fresh install now recovers on its first build, but find out why. Also `windows/oem/refresh.cmd` does not always restart the watcher, and the first request after a restart can take minutes to be noticed.
-- [ ] Optional: release automation (tag, push and a GitHub release with the files in `dist/`), as bobcat's `build.sh --release` does; left out on purpose.
 - [ ] History: the command line does not write to `history.json` yet; add saving CLI runs (opt in, since it records prompts and answers) and `pampas history list|show|delete`. Also: search inside the answers, not only the questions, and export a session (reuse **Save as…**) from the list.
 - [ ] Save as…: the save dialog has not been opened in a test (it needs a real desktop), only the rendering, file names and the calls to the backend. Try it on Linux, macOS and Windows; check the suggested name and filter, cancelling, and saving over an existing file. Consider also a command-line `--copy` (clipboard) and choosing `--format` from the `--output` file extension.
 - [ ] GUI polish: external links in answers are shown as text because a click would navigate the app window; add Tauri's opener plugin to open them in the browser. Also: cancel a running question, and test with a real screen reader (VoiceOver, NVDA, Orca) and on the macOS and Windows web views.
@@ -32,11 +31,11 @@ Status: `[ ]` open, `[~]` in progress, `[x]` done.
 
 ## Done
 
-- [x] Browser scrape sources (`render: "browser"`, `pampas-cli scrape add --browser`, `scrape login`) driving Chrome through its DevTools protocol (0.5.5). Tested against a local fake chat page in headless Chrome on Linux. Not tried against a real site, on macOS or on Windows.
+- [x] Browser scrape sources (`render: "browser"`, `pampas-cli scrape add --browser`, `scrape login`) driving Chrome through its DevTools protocol (0.6.0). Tested against a local fake chat page in headless Chrome on Linux. Not tried against a real site, on macOS or on Windows.
 
-- [x] Scrape sources can only be added from the command line, with a typed acknowledgement of the risks; the app shows and switches them but refuses to add or rewrite them (0.5.4).
-- [x] `--scrape` and `kind: "scrape"` providers for web sites without APIs (0.5.3). Still open: try it on real sites you choose (none are built in), a browser-driven variant for pages that need JavaScript, (the app edits only a scrape source's timeout and daily limit by design).
-
+- [x] Scrape sources can only be added from the command line, with a typed acknowledgement of the risks; the app shows and switches them but refuses to add or rewrite them (0.5.9).
+- [x] `--scrape` and `kind: "scrape"` providers for web sites without APIs (0.5.8). Still open: try it on real sites you choose (none are built in), a browser-driven variant for pages that need JavaScript, (the app edits only a scrape source's timeout and daily limit by design).
+- [x] Release automation (0.5.4): `build.sh --release` and `--delete-release`, copied from bobcat; the dry run was checked, a real release has not been made yet.
 - [x] Installer builds (0.5.0): `build.sh` with Linux native and container, a Windows 11 VM and a MinGW container for Windows, and bobcat's macOS process copied; Linux `.deb`/`.rpm`, a container `.deb`, and Windows installers from both Windows routes were built and the VM route cold-start was verified.
 - [x] History tab: finished questions saved automatically to `history.json` (library `pampas::history`), listed by day, opened in full, asked again, deleted singly or all at once, filtered by question, with a switch to stop saving; the old local-storage history is moved in once (0.4.9).
 - [x] Copy buttons in the app confirm visibly ("Copied"), and **Save as…** saves an answer set as Markdown, plain text or JSON through the system save dialog, rendered by the command line's own formatter (0.4.8).

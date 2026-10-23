@@ -4,49 +4,49 @@ Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
-## [0.6.9] - 2026-10-23
+## [0.7.4] - 2026-10-23
 
 ### Added
 
 - `pampas-cli scrape add --acknowledge` adds a scrape source without typing "I understand": the risks (and any site-specific warning) are still printed in full, followed by a line saying you acknowledged them with the flag, and no terminal is needed. Without the flag the typed acknowledgement is unchanged. The app still cannot add scrape sources.
 
-## [0.6.8] - 2026-10-23
+## [0.7.3] - 2026-10-23
 
 ### Added
 
 - `pampas-cli scrape remove <name>` removes a scrape source from the providers config (the old file is kept as `providers.json.bak`). It refuses a source that is not a scrape source or does not exist. A browser source's login stays in its profile folder, so adding it again needs no new login.
 
-## [0.6.7] - 2026-10-23
+## [0.7.2] - 2026-10-23
 
 ### Fixed
 
 - A browser source's `submit_selector` is now clicked with real mouse events (the button is scrolled into view and clicked at its centre) instead of a script's `.click()`, which some sites ignore: Microsoft 365 Copilot's Send button was not being pressed. With `PAMPAS_BROWSER_DEBUG` set, a `clicking <selector> at x,y` line shows the click.
 
-## [0.6.6] - 2026-10-23
+## [0.7.1] - 2026-10-23
 
 ### Fixed
 
 - The built-in `copilot` setup now clicks Copilot's Send button (`button[type="submit"][aria-label="Send"]`): pressing Enter did not send in Microsoft 365 Copilot, so the question was typed and left waiting. If you added `copilot` before this version, remove it in the app's Sources tab (or delete its entry in `providers.json`) and run `pampas-cli scrape add copilot` again, or add `"submit_selector": "button[type=\"submit\"][aria-label=\"Send\"]"` to its entry. Built-in setups can now carry a `submit_selector`.
 
-## [0.6.5] - 2026-10-23
+## [0.7.0] - 2026-10-23
 
 ### Added
 
 - `pampas-cli scrape add bing` adds Bing's AI Mode (`https://www.bing.com/copilotsearch`) from a sixth built-in setup. Bing draws its answer in an iframe, so browser sources have a new option, `answer_frame` (`--answer-frame` on `scrape add`): a CSS selector for a same-site iframe in which `selector` and `busy_selector` are looked up. Tested with a local page whose answer is in an iframe; the Bing selectors were checked on one answer, not while one was being written.
 
-## [0.6.4] - 2026-10-23
+## [0.6.9] - 2026-10-23
 
 ### Changed
 
 - With `PAMPAS_BROWSER_DEBUG` set, a browser source prints a `state` line only when the page's state changes, not every half second while it waits for the answer to stop changing.
 
-## [0.6.3] - 2026-10-23
+## [0.6.8] - 2026-10-23
 
 ### Added
 
 - `pampas-cli scrape add google-ai-mode` adds Google's AI Mode (`https://www.google.com/search?udm=50`) from a fifth built-in setup, with a warning about Google's automation checks (CAPTCHA, IP block from Search, account flags) and terms. The answer selector (`[data-container-id="main-col"]`) was checked on a shared AI Mode page; the live page, the stop-button busy marker and a signed-out browser were not, so it is the least tested built-in setup.
 
-## [0.6.2] - 2026-10-23
+## [0.6.7] - 2026-10-23
 
 ### Added
 
@@ -56,19 +56,19 @@ Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - A browser source keeps waiting if a call to the page fails for a moment (for example while the page navigates) instead of failing the question.
 
-## [0.6.1] - 2026-10-23
+## [0.6.6] - 2026-10-23
 
 ### Added
 
 - `pampas-cli scrape add copilot` adds Microsoft 365 Copilot chat (`https://m365.cloud.microsoft/chat`) from a third built-in setup, with a warning that a work or school account lets your organisation log the chats and that its sign-in policies may refuse the pampas browser profile. Input box (`#m365-chat-editor-target-element`) and answer (`[data-testid="markdown-reply"]`) selectors were checked on a signed-in chat; there is no busy selector.
 
-## [0.6.0] - 2026-10-23
+## [0.6.5] - 2026-10-23
 
 ### Added
 
 - `pampas-cli scrape add chatgpt` adds ChatGPT (`https://chatgpt.com/`) from a second built-in setup, in the same way as `deepseek`: it shows the risks, plus a warning that OpenAI's terms prohibit automated use and that the account can be limited or banned, needs `I understand`, and opens the login window if the profile is new. The input and answer selectors were checked on a logged-in chat; the "still writing" marker (`--busy-selector`) was not seen while an answer was being written. Built-in setups can now carry a busy selector and a site-specific warning.
 
-## [0.5.9] - 2026-10-23
+## [0.6.4] - 2026-10-23
 
 ### Added
 
@@ -78,25 +78,25 @@ Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - The browser options of `scrape add` (`--input-selector`, `--settle-secs`, `--headless` and the others) no longer need `--browser` to be accepted by the command line; a source that is not a browser source still refuses them with a clear message.
 
-## [0.5.8] - 2026-10-23
+## [0.6.3] - 2026-10-23
 
 ### Added
 
 - The Ask tab's *Also ask web sites that have no API (scraping)* option now lists the web sites added with `pampas-cli scrape add` (name, address, and whether each is selected above), or says how to add one when there are none.
 
-## [0.5.7] - 2026-10-23
+## [0.6.2] - 2026-10-23
 
 ### Added
 
 - `--only <name>`: ask just one provider (turned on even if its entry has `"enabled": false`) and leave every other one out, for example `pampas-cli --scrape --only deepseek "question"`. It cannot be combined with `--enable` or `--disable`, and an unknown name is an error that lists the configured ones.
 
-## [0.5.6] - 2026-10-23
+## [0.6.1] - 2026-10-23
 
 ### Fixed
 
 - `pampas-cli scrape login` opened Chrome with the automation (DevTools) port switched on, so Google's sign-in refused it with "This browser or app may not be secure". The login window is now an ordinary Chrome window on the source's profile with no automation port; the port is only opened when a question is asked, after you are logged in.
 
-## [0.5.5] - 2026-10-23
+## [0.6.0] - 2026-10-23
 
 ### Added
 
@@ -104,7 +104,7 @@ Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `pampas-cli scrape login <name>` opens a browser source's page in a normal window on its profile so you can log in by hand once.
 - A browser source's default timeout is 120 seconds. `PAMPAS_BROWSER_DEBUG` prints each step to stderr. The app explains a missing input box (log in again) and a browser that would not start.
 
-## [0.5.4] - 2026-10-23
+## [0.5.9] - 2026-10-23
 
 ### Added
 
@@ -115,13 +115,45 @@ Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Scrape sources can no longer be added in the app. They still appear in the Sources tab and can be switched on or off and given a timeout and daily limit, but saving a list that adds one, or changes a scrape source's address, request or name (including through the JSON list), is refused with a message pointing to `pampas-cli scrape add`.
 - The bundled example config no longer has a `scrape-example` entry.
 
-## [0.5.3] - 2026-10-23
+## [0.5.8] - 2026-10-23
 
 ### Added
 
 - `--scrape`: also ask web sites that have no API. A new provider kind, `"kind": "scrape"`, sends the prompt (`{prompt}` in `url` or `body`) as a `get` or `post` request and takes the answer from the page (`selector`, CSS) or a JSON reply (`json_pointer`). Scraping is off by default: without `--scrape` those entries are skipped with a warning, and with it a warning says your IP address can be blocked or banned and that it may break a site's terms. No sites are built in; `examples/providers.json` has a disabled `scrape-example` entry. See "Scraping web sites" in the README.
 - The Ask tab's *More options* has **Also ask web sites that have no API (scraping)**, with the same warning, and the Sources tab shows and edits the name, timeout and daily limit of scrape sources (the rest in the JSON list).
 - Plain-words explanations in the app for a site that blocks the request, a selector that finds nothing, and a scrape source skipped because scraping is off.
+
+## [0.5.7] - 2026-10-23
+
+### Fixed
+
+- The README's Cloudflare account id instructions now say where **Workers & Pages** is in the dashboard: under **Compute**.
+
+## [0.5.6] - 2026-10-23
+
+### Added
+
+- `./build.sh --release <version> --commit <ref>` tags the commit, branch or tag you name for that release, for a version that no commit's `Cargo.toml` says (for example one built only from the working tree, then committed with a later version). The commit must be on GitHub. Example: `./build.sh --release 0.5.3 --commit HEAD`.
+
+## [0.5.5] - 2026-10-23
+
+### Added
+
+- `./build.sh --release <version>` (for example `--release 0.5.3`) releases a specific version instead of the current one, using the files in `dist/` for it. It tags the version's existing tag, else the newest commit whose `Cargo.toml` says that version, and stops if that commit is not on GitHub or no commit has that version. It cannot be combined with `--target`.
+
+## [0.5.4] - 2026-10-23
+
+### Added
+
+- `./build.sh --release [--target <t>] [--draft] [--yes] [--dry-run]` tags the commit `v<version>`, pushes the tag and creates a GitHub release holding the files in `dist/` for that version, with that version's `CHANGELOG.md` section as the notes (needs `gh`, logged in). If the release exists the files are added to it, so each platform can be built and added from its own machine. It never commits: the tree must be committed and pushed, and it stops otherwise. Without `--target` it releases what is already in `dist/`; `--dry-run` shows what it would do and changes nothing.
+- `./build.sh --delete-release [<version>] [--keep-tag] [--yes] [--dry-run]` deletes that GitHub release and its files, and the tag on GitHub and locally unless `--keep-tag` is given. It asks first. Copied from bobcat's `build.sh`.
+
+## [0.5.3] - 2026-10-23
+
+### Fixed
+
+- `./build.sh --target mac` no longer stops after the installer with "the command-line binary was not found at target/release/pampas": the script defined `build_target` twice, and the second, older copy (still looking for a binary called `pampas`) was the one that ran, so the `pampas-cli-<version>-mac-<arch>.tar.gz` archive was never made. The older copy is removed.
+- The macOS build has now been run on a Mac (Apple silicon): the `.dmg` and the command-line archive build, the app is signed ad hoc with identifier `au.com.lateralblast.pampas`, and `Info.plist` has the local-network note and minimum system version 11.0.
 
 ## [0.5.2] - 2026-10-23
 

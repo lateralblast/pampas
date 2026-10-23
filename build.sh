@@ -18,15 +18,32 @@
 # Results are copied to ./dist/ (gitignored).
 # A target can only be built on its own platform (the app links the system web view), except through the VM and Docker routes above.
 # Needs the Rust toolchain, Node (the interface is built with it) and tauri-cli (cargo install tauri-cli --version '^2').
-# It never commits, tags, pushes or publishes anything.
+#   ./build.sh [--target <t>] --release [<version>] [--commit <ref>] [--draft] [--yes] [--dry-run]
+#   ./build.sh --delete-release [<version>] [--keep-tag] [--yes] [--dry-run]
+# --release tags the commit v<version> (version from Cargo.toml), pushes the tag and creates the GitHub release with the
+# files in dist/ for that version (needs `gh`, logged in). The release notes are that version's section of CHANGELOG.md.
+# If the release already exists the files are added to it, so each platform can be built and added on its own machine.
+# It never commits: the working tree must already be committed and pushed. Without --target it only releases what is
+# already in dist/. --draft creates a draft release, --yes skips the question, --dry-run prints what it would do and
+# changes nothing. --release 0.5.3 releases that version instead of the current one: it uses the files in dist/ for it
+# and tags its existing tag, else the newest commit whose Cargo.toml says that version (which must be pushed);
+# --commit <ref> (a commit, branch or tag) says which commit to tag instead: for a version no commit's Cargo.toml says
+# (say it was only ever built from the working tree), with --release <version>. The commit must be pushed.
+# a version other than the current one cannot be combined with --target (build it from a checkout of that commit).
+# --delete-release deletes the GitHub release v<version> (default: the current version) with its uploaded files, and the
+# tag v<version> on GitHub and locally unless --keep-tag is given. It asks first (--yes skips the question). It never
+# touches commits or dist/.
+# Apart from --release and --delete-release it never commits, tags, pushes or publishes anything.
 set -euo pipefail
 
 usage() {
   echo "usage: $0 --target mac|linux|deb|rpm|windows [--arch arm64|x64|universal] [--package deb|rpm|appimage|all] [--docker] [--no-cli]"
+  echo "       $0 [--target <t>] --release [<version>] [--commit <ref>] [--draft] [--yes] [--dry-run]"
+  echo "       $0 --delete-release [<version>] [--keep-tag] [--yes] [--dry-run]"
   exit "${1:-1}"
 }
 
-target="" arch="" package="" docker=0 cli=1
+target="" arch="" package="" docker=0 cli=1 delete=0 del_version="" rel_version="" rel_commit="" keep_tag=0 release=0 draft=0 yes=0 dry=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --target) target="${2:-}"; shift 2 ;;
@@ -34,16 +51,32 @@ while [ $# -gt 0 ]; do
     --package|--format) package="${2:-}"; shift 2 ;;
     --docker) docker=1; shift ;;
     --no-cli) cli=0; shift ;;
+    --release)
+      release=1; shift
+      case "${1:-}" in -*|"") ;; *) rel_version="${1#v}"; shift ;;
+      esac ;;
+    --delete-release)
+      delete=1; shift
+      case "${1:-}" in -*|"") ;; *) del_version="${1#v}"; shift ;;
+      esac ;;
+    --commit) rel_commit="${2:-}"; [ -n "$rel_commit" ] || { echo "--commit needs a commit or tag" >&2; exit 1; }; shift 2 ;;
+    --keep-tag) keep_tag=1; shift ;;
+    --draft) draft=1; shift ;;
+    --yes) yes=1; shift ;;
+    --dry-run) dry=1; shift ;;
     -h|--help) usage 0 ;;
     *) echo "unknown option: $1" >&2; usage ;;
   esac
 done
-[ -n "$target" ] || usage
+[ -n "$target" ] || [ "$release" = 1 ] || [ "$delete" = 1 ] || usage
+[ -z "$rel_version" ] || [ -z "$target" ] || { echo "--release <version> cannot be combined with --target: build that version first" >&2; exit 1; }
+[ "$delete" = 0 ] || { [ "$release" = 0 ] && [ -z "$target" ]; } || { echo "--delete-release cannot be combined with --release or --target" >&2; exit 1; }
 
 root=$(cd "$(dirname "$0")" && pwd)
 dist="$root/dist"
 # the version of the root package (the first `version =` line of Cargo.toml, under [package])
 version=$(sed -n 's/^version = "\(.*\)"/\1/p' "$root/Cargo.toml" | head -1)
+current=$version
 
 # The package format of the Linux distribution this runs on (/etc/os-release ID and ID_LIKE).
 native_package() {
@@ -293,4 +326,124 @@ build_target() {
   echo "done: $dist"
 }
 
-build_target
+release_it() {
+  die() { echo "release: $*" >&2; exit 1; }
+  # run a command, or only show it with --dry-run
+  run() { if [ "$dry" = 1 ]; then echo "  [dry-run] $*"; else "$@"; fi; }
+  # a problem stops a real release; a dry run only reports it
+  problem() { if [ "$dry" = 1 ]; then echo "  [dry-run] would stop: $*"; else die "$*"; fi; }
+
+  command -v gh >/dev/null || die "gh (the GitHub CLI) is not installed"
+  gh auth status >/dev/null 2>&1 || die "gh is not logged in (gh auth login)"
+  # the version to release: the one given (--release 0.5.3), else the current one
+  local version="${rel_version:-$version}"
+  local tag="v$version"
+  shopt -s nullglob
+  local assets=("$dist"/*_"$version"_* "$dist"/*-"$version"-*)
+  shopt -u nullglob
+  [ "${#assets[@]}" -gt 0 ] || die "no files for $version in $dist (build it first: $0 --target <t>)"
+
+  cd "$root"
+  git fetch -q origin 2>/dev/null || true
+  local commit
+  if [ -n "$rel_commit" ]; then
+    commit=$(git rev-parse -q --verify "$rel_commit^{commit}") || die "$rel_commit is not a commit"
+    [ -n "$(git branch -r --contains "$commit" 2>/dev/null)" ] || problem "commit $(git rev-parse --short "$commit") is not on GitHub: push it first"
+  elif [ "$version" = "$current" ]; then
+    commit=$(git rev-parse HEAD)
+    [ -z "$(git status --porcelain)" ] || problem "uncommitted changes: commit them first (this script never commits)"
+    local upstream
+    upstream=$(git rev-parse --abbrev-ref '@{u}' 2>/dev/null) || upstream=""
+    if [ -z "$upstream" ]; then
+      problem "this branch has no upstream: push it first"
+    elif [ "$commit" != "$(git rev-parse '@{u}')" ]; then
+      problem "HEAD is not the same as $upstream: push (or pull) first"
+    fi
+  else
+    # an older version: its tag if there is one, else the newest commit whose Cargo.toml says that version
+    if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+      commit=$(git rev-list -n1 "$tag")
+    else
+      commit=""
+      local c
+      for c in $(git log --format=%H -- Cargo.toml); do
+        if [ "$(git show "$c:Cargo.toml" 2>/dev/null | sed -n 's/^version = "\(.*\)"/\1/p' | head -1)" = "$version" ]; then commit=$c; break; fi
+      done
+      [ -n "$commit" ] || die "no tag $tag and no commit with version $version in Cargo.toml"
+    fi
+    [ -n "$(git branch -r --contains "$commit" 2>/dev/null)" ] || problem "commit $(git rev-parse --short "$commit") is not on GitHub: push it first"
+  fi
+  if git rev-parse -q --verify "refs/tags/$tag" >/dev/null && [ "$(git rev-list -n1 "$tag")" != "$commit" ]; then
+    problem "tag $tag already exists on another commit"
+  fi
+
+  local notes
+  notes=$(mktemp)
+  awk -v ver="$version" 'index($0, "## [" ver "]") == 1 { p = 1; next } /^## \[/ { p = 0 } p' "$root/CHANGELOG.md" > "$notes"
+  local notes_args=(--notes-file "$notes")
+  if [ ! -s "$notes" ]; then
+    echo "  CHANGELOG.md has no section for $version: GitHub will generate the notes"
+    notes_args=(--generate-notes)
+  fi
+
+  local exists=0
+  gh release view "$tag" >/dev/null 2>&1 && exists=1
+  echo "== release $tag =="
+  echo "  commit:  $(git log -1 --format='%h %s' "$commit")"
+  echo "  files:"
+  printf '    %s\n' "${assets[@]##*/}"
+  if [ "$exists" = 1 ]; then echo "  the release exists: the files above are added to it"; else echo "  a new release will be created$([ "$draft" = 1 ] && echo ' (draft)')"; fi
+  if [ "$yes" != 1 ] && [ "$dry" != 1 ]; then
+    read -r -p "Tag, push and publish? [y/N] " ans
+    case "$ans" in y|Y|yes) ;; *) echo "stopped"; exit 1 ;; esac
+  fi
+
+  git rev-parse -q --verify "refs/tags/$tag" >/dev/null || run git tag -a "$tag" -m "pampas $version" "$commit"
+  run git push origin "$tag"
+  if [ "$exists" = 1 ]; then
+    run gh release upload "$tag" "${assets[@]}" --clobber
+  else
+    local draft_args=()
+    [ "$draft" = 1 ] && draft_args=(--draft)
+    run gh release create "$tag" "${assets[@]}" --title "pampas $version" "${notes_args[@]}" ${draft_args[@]+"${draft_args[@]}"}
+  fi
+  rm -f "$notes"
+  echo "release done: $(gh release view "$tag" --json url -q .url 2>/dev/null || echo "$tag")"
+}
+
+delete_release() {
+  die() { echo "delete-release: $*" >&2; exit 1; }
+  run() { if [ "$dry" = 1 ]; then echo "  [dry-run] $*"; else "$@"; fi; }
+  command -v gh >/dev/null || die "gh (the GitHub CLI) is not installed"
+  gh auth status >/dev/null 2>&1 || die "gh is not logged in (gh auth login)"
+  local tag="v${del_version:-$version}"
+  cd "$root"
+  local exists=0 remote_tag=0 local_tag=0
+  gh release view "$tag" >/dev/null 2>&1 && exists=1
+  git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null 2>&1 && remote_tag=1
+  git rev-parse -q --verify "refs/tags/$tag" >/dev/null && local_tag=1
+  [ "$exists" = 1 ] || [ "$remote_tag" = 1 ] || [ "$local_tag" = 1 ] || die "no release or tag $tag found"
+  echo "== delete release $tag =="
+  [ "$exists" = 1 ] && echo "  GitHub release: $(gh release view "$tag" --json url -q .url) (with its files)" || echo "  no GitHub release"
+  if [ "$keep_tag" = 1 ]; then
+    echo "  the tag is kept"
+  else
+    echo "  tag on GitHub: $([ "$remote_tag" = 1 ] && echo yes || echo no), local tag: $([ "$local_tag" = 1 ] && echo yes || echo no)"
+  fi
+  if [ "$yes" != 1 ] && [ "$dry" != 1 ]; then
+    read -r -p "Delete? This cannot be undone. [y/N] " ans
+    case "$ans" in y|Y|yes) ;; *) echo "stopped"; exit 1 ;; esac
+  fi
+  if [ "$exists" = 1 ]; then
+    if [ "$keep_tag" = 1 ]; then run gh release delete "$tag" --yes; else run gh release delete "$tag" --yes --cleanup-tag; fi
+  fi
+  if [ "$keep_tag" != 1 ]; then
+    [ "$exists" = 1 ] || [ "$remote_tag" = 0 ] || run git push origin ":refs/tags/$tag"
+    [ "$local_tag" = 0 ] || run git tag -d "$tag"
+  fi
+  echo "delete done: $tag"
+}
+
+if [ "$delete" = 1 ]; then delete_release; exit 0; fi
+if [ -n "$target" ]; then build_target; fi
+if [ "$release" = 1 ]; then release_it; fi
