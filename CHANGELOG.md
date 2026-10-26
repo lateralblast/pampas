@@ -4,6 +4,12 @@ Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.7.8] - 2026-10-27
+
+### Fixed
+
+- On macOS, `pampas-cli scrape add` (and `scrape login`) appeared to hang after the login window was closed, because closing Chrome's last window leaves Chrome running and pampas waits for it to exit. It now says to quit the browser with Cmd+Q, and the README says so.
+
 ## [0.7.7] - 2026-10-25
 
 ### Added

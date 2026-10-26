@@ -2,7 +2,7 @@
 
 # pampas
 
-Version: 0.7.7
+Version: 0.7.8
 
 **pampas** is short for Parallel AI Multi-provider Prompt Aggregator & Synthesizer: a command-line tool and desktop app that send one prompt to several free AI services in parallel and merge the results.
 
@@ -441,7 +441,7 @@ pampas-cli --scrape --only deepseek "your question"
 ```
 
 1. `scrape add deepseek` uses the built-in setup (below), shows the risks, and waits for you to type `I understand` (or pass `--acknowledge` to skip the typing). The rest of its options still work if you want to change a part of it (for example `--daily-limit 50`).
-2. It then tells you that you need to log in once and opens an ordinary Chrome window on the source's own profile (not your everyday one, so you log in once more there). Log in until you see the chat, then **close the window**; two browsers cannot share a profile. The window has no automation switched on, because sign-in pages such as Google's refuse a browser that does. If that profile was used before, it skips the window and says so; run `pampas-cli scrape login deepseek` any time to log in again.
+2. It then tells you that you need to log in once and opens an ordinary Chrome window on the source's own profile (not your everyday one, so you log in once more there). Log in until you see the chat, then **close the window** (on a Mac, quit the browser with Cmd+Q: closing the last window leaves Chrome running, and pampas waits for it to exit); two browsers cannot share a profile. The window has no automation switched on, because sign-in pages such as Google's refuse a browser that does. If that profile was used before, it skips the window and says so; run `pampas-cli scrape login deepseek` any time to log in again.
 3. `--only deepseek` asks just that source (see [Flags](#flags)); drop it to ask DeepSeek alongside the other providers.
 
 The built-in setup is the same as typing it out (selectors checked against the logged-in page on 2026-10-23; the site can change them at any time):

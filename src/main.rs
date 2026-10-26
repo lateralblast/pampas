@@ -356,6 +356,13 @@ fn run_init(config: Option<PathBuf>) -> anyhow::Result<()> {
     write_example_and_explain(&path)
 }
 
+/// On a Mac, closing Chrome's last window leaves Chrome running, and the login step waits for it to exit.
+fn quit_hint() {
+    if cfg!(target_os = "macos") {
+        println!("on a Mac, quit the browser (Cmd+Q) when you are done: closing the window leaves it running, and pampas waits for it to exit");
+    }
+}
+
 /// `pampas-cli scrape add|remove|list|login`. Adding needs the risks acknowledged: typed at a terminal, or
 /// with `--acknowledge`, which the user passes knowing what it says. The app can never add one.
 async fn run_scrape(action: ScrapeAction, config: Option<PathBuf>) -> anyhow::Result<()> {
@@ -374,6 +381,7 @@ async fn run_scrape(action: ScrapeAction, config: Option<PathBuf>) -> anyhow::Re
                 .with_context(|| format!("no scrape source named {name:?} in {}", path.display()))?;
             anyhow::ensure!(cfg.render == pampas::scrape::Render::Browser, "{name} is not a browser source, so it has nothing to log in to");
             println!("opening {} in a browser window for {name}: log in, then close the window", cfg.url);
+            quit_hint();
             pampas::browser::login(&cfg).await
         }
         ScrapeAction::Remove { name } => {
@@ -553,6 +561,7 @@ async fn run_scrape(action: ScrapeAction, config: Option<PathBuf>) -> anyhow::Re
                         Some(what) => println!("a browser window opens now on {}: {what}", cfg.url),
                         None => println!("you need to log in to {} once: a browser window opens now; log in, then close the window", cfg.url),
                     }
+                    quit_hint();
                     pampas::browser::login(&cfg).await?;
                     println!("done; try `pampas-cli --scrape --only {name} \"hello\"`");
                 }
