@@ -4,6 +4,12 @@ Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.7.7] - 2026-10-25
+
+### Added
+
+- `pampas-cli scrape add deepai` adds DeepAI's chat (`https://deepai.org/chat`, no account needed) from a seventh built-in setup, with a warning about its limits and terms. The selectors were read from the page's HTML and script and have **not** yet been tried in a browser, so treat it as untested until it has been run.
+
 ## [0.7.6] - 2026-10-23
 
 ### Added

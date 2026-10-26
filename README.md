@@ -2,7 +2,7 @@
 
 # pampas
 
-Version: 0.7.6
+Version: 0.7.7
 
 **pampas** is short for Parallel AI Multi-provider Prompt Aggregator & Synthesizer: a command-line tool and desktop app that send one prompt to several free AI services in parallel and merge the results.
 
@@ -429,6 +429,7 @@ Status of the built-in sites (`pampas-cli scrape add <name>`), as tried on Linux
 | `chatgpt` | ChatGPT | OpenAI | Works end to end. The "still writing" marker was not seen mid-answer. |
 | `copilot` | Microsoft 365 Copilot chat | Microsoft 365 | Works end to end (Enter does not send there, so the Send button is clicked). |
 | `duckduckgo` | DuckDuckGo AI chat (duck.ai) | none | Works end to end. The stop-button marker was not seen mid-answer. |
+| `deepai` | DeepAI chat | none | Untested: selectors read from the page's HTML and script on 2026-10-25, not yet run in a browser. |
 | `google-ai-mode` | Google AI Mode | optional | Works end to end, but the answer includes citation labels, follow-up suggestions and a footer. |
 | `bing` | Bing AI Mode (Copilot Search) | optional | Works end to end (the answer is read from an iframe). |
 
@@ -452,7 +453,7 @@ pampas-cli scrape add deepseek --url https://chat.deepseek.com/ --browser \
   --settle-secs 6 --daily-limit 20
 ```
 
-Any option you give wins over the built-in value. Giving `--url` turns the built-in setup off, since you are then describing a different address. The built-in sites are `deepseek`, `chatgpt`, `copilot`, `duckduckgo`, `google-ai-mode` and `bing`; any other name needs `--url`.
+Any option you give wins over the built-in value. Giving `--url` turns the built-in setup off, since you are then describing a different address. The built-in sites are `deepseek`, `chatgpt`, `copilot`, `duckduckgo`, `deepai`, `google-ai-mode` and `bing`; any other name needs `--url`.
 
 Bing's AI Mode (Copilot Search) is built in as `bing` (`pampas-cli scrape add bing`, then `pampas-cli --scrape --only bing "your question"`). Typed out:
 
@@ -488,6 +489,19 @@ pampas-cli scrape add duckduckgo --url https://duck.ai/chat --browser \
 ```
 
 The window that opens after `scrape add` is for one step: the first time, DuckDuckGo asks you to click **Continue** to accept its terms of service; click it and close the window (the setting is kept in the pampas profile, which is separate from your own browser). Selectors checked on 2026-10-23; the answer selector skips the "said GPT-… · 1s" header and "2nd opinion" button that the answer's container also holds, and the busy marker (the stop button, which is on the page but disabled when idle) was not seen while an answer was being written. DuckDuckGo limits requests per address and may ask for a check if it sees automated use.
+
+DeepAI's chat is built in as `deepai` (`pampas-cli scrape add deepai`, then `pampas-cli --scrape --only deepai "your question"`). It needs no account. **Untested:** the selectors were read from the page's HTML and script (2026-10-25), not seen working in a browser. Typed out:
+
+```
+pampas-cli scrape add deepai --url https://deepai.org/chat --browser \
+  --input-selector 'textarea#persistentChatbox' \
+  --submit-selector '#chatSubmitButton' \
+  --selector '.outputBox .markdownContainer' \
+  --busy-selector '#chatStopButton[style*="display: block"]' \
+  --settle-secs 5 --daily-limit 20
+```
+
+The window that opens after `scrape add` needs no login: make sure the "Message AI Chat..." box is there, then close it. DeepAI limits free use, some models need DeepAI Pro, and it may ask for a check or limit your address if it sees automated use.
 
 Microsoft 365 Copilot chat is built in as `copilot` (`pampas-cli scrape add copilot`, then `pampas-cli --scrape --only copilot "your question"`). It needs a Microsoft 365 account, which you log in to in the login window. Typed out:
 

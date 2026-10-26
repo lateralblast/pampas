@@ -4,6 +4,7 @@ Status: `[ ]` open, `[~]` in progress, `[x]` done.
 
 ## Open
 
+- [ ] Try the `deepai` built-in site in a real browser (`pampas-cli scrape add deepai`, then `--scrape --only deepai`): its selectors were read from the HTML and script only; check the answer selector, the Send/Stop buttons and that Enter or the button sends.
 - [ ] Browser scrape sources, still untested: macOS and Windows (finding Chrome, the profile folders, the DevTools port file), `--headless` on a real site, Chromium (the snap build on Linux) instead of Google Chrome, asking a scrape source from the app's Ask tab and seeing the scraping option and site list in the real app (only the mock backend was screenshotted), and a long answer on `chatgpt`, `duckduckgo` and `google-ai-mode` whose busy markers were never seen mid-answer.
 - [ ] `google-ai-mode`: the answer text includes citation labels (`Wikipedia +3`), follow-up suggestions and the "AI can make mistakes" footer; narrow the selector or add a way to trim it, after looking at a live answer's markup.
 - [ ] Built-in site setups break when a site changes its page: consider a `pampas-cli scrape check <name>` that loads the page and reports which selector no longer matches.

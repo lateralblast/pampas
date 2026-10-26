@@ -113,6 +113,20 @@ Preset {
     first_run: Some("no login is needed: the first time, DuckDuckGo asks you to click Continue to accept its terms of service. Click it, then close the window."),
 },
 Preset {
+    name: "deepai",
+    url: "https://deepai.org/chat",
+    input_selector: "textarea#persistentChatbox",
+    selector: ".outputBox .markdownContainer",
+    submit_selector: Some("#chatSubmitButton"),
+    busy_selector: Some("#chatStopButton[style*=\"display: block\"]"),
+    answer_frame: None,
+    settle_secs: 5,
+    daily_limit: 20,
+    checked: "selectors read from the page's HTML and script on 2026-10-25, not yet tried in a browser",
+    warning: Some("DeepAI's chat works without an account but limits free use, and some models need DeepAI Pro. Its terms apply to automated use too, and it may ask for a check or limit your address if it sees automated use."),
+    first_run: Some("no login is needed: accept or dismiss any banner, make sure you can see the \"Message AI Chat...\" box, then close the window."),
+},
+Preset {
     name: "google-ai-mode",
     url: "https://www.google.com/search?udm=50",
     input_selector: "textarea[aria-label=\"Ask anything\"]",
@@ -668,6 +682,8 @@ mod tests {
         assert_eq!(preset("chatgpt").unwrap().url, "https://chatgpt.com/");
         assert_eq!(preset("copilot").unwrap().url, "https://m365.cloud.microsoft/chat");
         assert_eq!(preset("duckduckgo").unwrap().url, "https://duck.ai/chat");
+        assert_eq!(preset("deepai").unwrap().url, "https://deepai.org/chat");
+        assert!(preset("deepai").unwrap().submit_selector.is_some());
         assert!(preset("google-ai-mode").unwrap().url.contains("udm=50"));
         assert!(preset("copilot").unwrap().submit_selector.is_some());
         assert!(preset("deepseek").unwrap().submit_selector.is_none());
