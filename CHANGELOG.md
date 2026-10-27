@@ -4,6 +4,12 @@ Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.9.9] - 2026-10-27
+
+### Fixed
+
+- `./build.sh --target mac --arch universal` (or `x64`) failed deep into the build with "can't find crate for `std`" when Homebrew's Rust came before rustup's on `PATH`: `rustup target add` had installed the target for rustup's toolchain, but `cargo` ran from Homebrew's, which has only the native standard library. The script now checks that the `rustc` it will use has the standard library for each requested architecture and, if not, stops at once and says to put `~/.cargo/bin` first on `PATH` (or remove the other Rust).
+
 ## [0.9.8] - 2026-10-27
 
 ### Changed

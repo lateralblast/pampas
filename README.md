@@ -2,7 +2,7 @@
 
 # pampas
 
-Version: 0.9.8
+Version: 0.9.9
 
 **pampas** is short for Parallel AI Multi-provider Prompt Aggregator & Synthesizer: a command-line tool and desktop app that send one prompt to several free AI services in parallel and merge the results.
 
@@ -749,7 +749,7 @@ Not tested yet: browser scrape sources on Windows, the first six built-in sites 
 
 ### macOS
 
-On a Mac, install the Xcode command line tools, Rust (`rustup`), Node and `tauri-cli`, then `./build.sh --target mac` (your Mac's architecture) or `--arch arm64|x64|universal`. The `.dmg` is signed ad hoc (`signingIdentity "-"`), which gives the app a stable identity for the keychain, and the app's `Info.plist` explains why it uses the local network (to reach an Ollama server on your LAN); without that note macOS refuses LAN connections silently. It is not notarized, so the first time you open it, right-click the app and choose Open. The arm64 build has been made on a Mac; see "What has been tested" for what has and has not been run.
+On a Mac, install the Xcode command line tools, Rust (`rustup`), Node and `tauri-cli`, then `./build.sh --target mac` (your Mac's architecture) or `--arch arm64|x64|universal`. The `.dmg` is signed ad hoc (`signingIdentity "-"`), which gives the app a stable identity for the keychain, and the app's `Info.plist` explains why it uses the local network (to reach an Ollama server on your LAN); without that note macOS refuses LAN connections silently. It is not notarized, so the first time you open it, right-click the app and choose Open. The arm64 build has been made on a Mac; see "What has been tested" for what has and has not been run. If Homebrew's `rust` is also installed and comes first on your `PATH`, `--arch x64` and `--arch universal` cannot find the standard library for the other architecture; the script stops with a message, and `PATH="$HOME/.cargo/bin:$PATH" ./build.sh ...` (or `brew uninstall rust`) fixes it.
 
 ## Environment variables
 

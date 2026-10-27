@@ -266,6 +266,16 @@ build_target() {
         universal-apple-darwin) rustup target add aarch64-apple-darwin x86_64-apple-darwin ;;
         *) rustup target add "$triple" ;;
       esac
+      # rustup adds the target to ITS toolchain; the rustc found first on PATH may be another install (for
+      # example Homebrew's), which has only the native standard library and fails later with "can't find crate for `std`"
+      sysroot=$(rustc --print sysroot)
+      for t in $(case "$triple" in universal-apple-darwin) echo aarch64-apple-darwin x86_64-apple-darwin ;; *) echo "$triple" ;; esac); do
+        [ -d "$sysroot/lib/rustlib/$t" ] || {
+          echo "the rustc on PATH ($(command -v rustc)) has no standard library for $t, though rustup may have installed it for its own toolchain." >&2
+          echo "put rustup's first: PATH=\"\$HOME/.cargo/bin:\$PATH\" ./build.sh ... (or remove the other Rust, for example 'brew uninstall rust')" >&2
+          exit 1
+        }
+      done
     fi
   elif [ -n "$arch" ]; then
     echo "--arch only applies to --target mac (or --target linux with --docker)" >&2; exit 1
