@@ -1,5 +1,5 @@
 //! The version must match in Cargo.toml, README.md, the newest CHANGELOG.md heading and the GUI app's
-//! `src-tauri/Cargo.toml`, `src-tauri/tauri.conf.json` and `ui/package.json`.
+//! `src-tauri/Cargo.toml`, `src-tauri/tauri.conf.json`, `ui/package.json` and `ui/package-lock.json`.
 
 fn read(path: &str) -> String {
     std::fs::read_to_string(format!("{}/{path}", env!("CARGO_MANIFEST_DIR"))).unwrap()
@@ -24,4 +24,7 @@ fn versions_agree() {
         read("src-tauri/tauri.conf.json").contains(&format!("\"version\": \"{v}\"")),
         "src-tauri/tauri.conf.json version"
     );
+    let lock: serde_json::Value = serde_json::from_str(&read("ui/package-lock.json")).unwrap();
+    assert_eq!(lock["version"], v, "ui/package-lock.json version");
+    assert_eq!(lock["packages"][""]["version"], v, "ui/package-lock.json root package version");
 }

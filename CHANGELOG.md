@@ -4,6 +4,24 @@ Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.9.8] - 2026-10-27
+
+### Changed
+
+- The version test (`cargo test versions_agree`) now also checks `ui/package-lock.json`, so the lockfile can no longer fall behind the other version files unnoticed.
+
+## [0.9.7] - 2026-10-27
+
+### Fixed
+
+- `ui/package-lock.json` still said version 0.4.5; it now matches the other version files.
+
+## [0.9.6] - 2026-10-27
+
+### Changed
+
+- The README's status table and test list said all built-in sites were tried on Linux on 2026-10-23; they now say which were tried on Linux (the first six) and which on macOS (the eight added since), and that browser sources on macOS are no longer untested for those eight.
+
 ## [0.9.5] - 2026-10-27
 
 ### Changed

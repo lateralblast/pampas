@@ -2,7 +2,7 @@
 
 # pampas
 
-Version: 0.9.5
+Version: 0.9.8
 
 **pampas** is short for Parallel AI Multi-provider Prompt Aggregator & Synthesizer: a command-line tool and desktop app that send one prompt to several free AI services in parallel and merge the results.
 
@@ -421,7 +421,7 @@ pampas-cli scrape remove some-site
 
 A source with `"render": "browser"` drives a real Chrome or Chromium instead of sending one request, for a chat page that only works in a browser and behind a login. For each question pampas opens the browser on a profile folder of its own for that source (in the state directory under `browser/`), loads `url`, types the prompt into the input box, sends it, waits until the answer has stopped changing, reads it and closes the browser. It does not hide that the browser is automated, and does not get around logins, captchas or blocks. It also puts the **account** you log in with at risk of being limited or suspended, not just your IP address; the `scrape add` prompt says so too.
 
-Status of the built-in sites (`pampas-cli scrape add <name>`), as tried on Linux with Google Chrome on 2026-10-23. The sites change their pages without notice, so a setup that worked can stop working.
+Status of the built-in sites (`pampas-cli scrape add <name>`), as tried with Google Chrome: the first six on Linux on 2026-10-23, and `deepai`, `perplexity`, `qwen`, `zai`, `kimi`, `mistral`, `grok` and `arena` on macOS on 2026-10-27 (the dates are in each row's section below). The sites change their pages without notice, so a setup that worked can stop working.
 
 | Name | Site | Account | Status |
 |---|---|---|---|
@@ -743,9 +743,9 @@ If a build never starts (`windows/out/build.request` stays and no `build.log` ap
 | Windows, in the VM | installer and `pampas-cli.exe` built with MSVC, three times, including a cold start of the stopped VM that the script started and stopped itself |
 | Windows, cross build | installer and `pampas-cli.exe` built with MinGW in a container |
 | macOS, Apple silicon | `.dmg` and `pampas-cli` archive built on a Mac (arm64); the ad hoc signature, `Info.plist` and command-line version were inspected; the app has not been opened and run, and `x64` and `universal` are not built |
-| Browser scrape sources (`render: "browser"`) | the six built-in sites on Linux with Google Chrome (see the status table under [Scraping web sites](#scraping-web-sites)), and a local fake chat page including a streamed answer, an iframe answer and a button that ignores script clicks |
+| Browser scrape sources (`render: "browser"`) | the first six built-in sites on Linux with Google Chrome, and the other eight on macOS with Google Chrome (see the status table under [Scraping web sites](#scraping-web-sites)), and a local fake chat page including a streamed answer, an iframe answer and a button that ignores script clicks |
 
-Not tested yet: browser scrape sources on macOS and Windows, with `--headless`, with Chromium instead of Chrome, and asked from the app's Ask tab; running either Windows installer, or the app, on a Windows machine; running the macOS app (keychain, local-network prompt, Gatekeeper), the `x64` and `universal` macOS builds; the AppImage package; the arm64 container build. See `TODO.md`.
+Not tested yet: browser scrape sources on Windows, the first six built-in sites on macOS, with `--headless`, with Chromium instead of Chrome, and asked from the app's Ask tab; running either Windows installer, or the app, on a Windows machine; running the macOS app (keychain, local-network prompt, Gatekeeper), the `x64` and `universal` macOS builds; the AppImage package; the arm64 container build. See `TODO.md`.
 
 ### macOS
 
