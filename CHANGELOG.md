@@ -4,6 +4,18 @@ Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.9.3] - 2026-10-27
+
+### Changed
+
+- The built-in `grok` setup has been run end to end through pampas on a logged-in free account and works; the README and the setup's note now say so.
+
+## [0.9.2] - 2026-10-27
+
+### Added
+
+- `pampas-cli scrape add grok` adds Grok's chat (`https://grok.com/`, a free account) from a thirteenth built-in setup, with a warning about account limits, the cookie dialog and upsell banners. Selectors were checked on the live page on a logged-in free account: the question is sent with the Submit button, the busy marker is the Stop model response button, and the answer is read from the assistant's row only (`items-start`), not from your own message, which uses the same markup. It has not yet been run through pampas.
+
 ## [0.9.1] - 2026-10-27
 
 ### Changed

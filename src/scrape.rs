@@ -197,6 +197,20 @@ Preset {
     first_run: Some("log in to Mistral (a free account is enough) and click through any pop-ups or setup cards until you can see the message box, then quit the browser."),
 },
 Preset {
+    name: "grok",
+    url: "https://grok.com/",
+    input_selector: "div[aria-label=\"Ask Grok anything\"]",
+    selector: "[id^=\"response-\"].items-start .response-content-markdown",
+    submit_selector: Some("button[aria-label=\"Submit\"]"),
+    busy_selector: Some("button[aria-label=\"Stop model response\"]"),
+    answer_frame: None,
+    settle_secs: 5,
+    daily_limit: 20,
+    checked: "works end to end 2026-10-27 on a logged-in free account; the answer is picked from the assistant's row (the user's row is items-end)",
+    warning: Some("Grok uses your X or xAI account: the account, not only the IP address, can be limited or suspended for automated use, every question appears in that account's chat history, free use has its own daily limits, and the site shows a cookie preference dialog and upsell banners that pampas does not dismiss. Its terms apply to automated use too."),
+    first_run: Some("log in to Grok (a free account is enough), choose a cookie preference and clear any pop-ups until you can see the \"Ask Grok anything\" box, then quit the browser."),
+},
+Preset {
     name: "google-ai-mode",
     url: "https://www.google.com/search?udm=50",
     input_selector: "textarea[aria-label=\"Ask anything\"]",
@@ -756,6 +770,7 @@ mod tests {
         assert!(preset("deepai").unwrap().submit_selector.is_some());
         assert_eq!(preset("perplexity").unwrap().input_selector, "#ask-input");
         assert_eq!(preset("qwen").unwrap().url, "https://chat.qwen.ai/");
+        assert_eq!(preset("grok").unwrap().url, "https://grok.com/");
         assert_eq!(preset("mistral").unwrap().url, "https://chat.mistral.ai/work");
         assert_eq!(preset("kimi").unwrap().url, "https://www.kimi.ai/");
         assert_eq!(preset("zai").unwrap().submit_selector, Some("#send-message-button"));

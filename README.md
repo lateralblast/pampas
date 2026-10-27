@@ -2,7 +2,7 @@
 
 # pampas
 
-Version: 0.9.1
+Version: 0.9.3
 
 **pampas** is short for Parallel AI Multi-provider Prompt Aggregator & Synthesizer: a command-line tool and desktop app that send one prompt to several free AI services in parallel and merge the results.
 
@@ -434,6 +434,7 @@ Status of the built-in sites (`pampas-cli scrape add <name>`), as tried on Linux
 | `zai` | Z.ai chat (GLM) | Z.ai (free) | Works end to end (2026-10-27, logged in to a free account). The answer starts with a "Thought Process" line; no busy marker. |
 | `kimi` | Kimi chat (kimi.ai) | Kimi (free) | Works end to end (2026-10-27, logged in to a free account). |
 | `mistral` | Mistral chat (Vibe Work) | Mistral (free) | Works end to end (2026-10-27, logged in to a free account). |
+| `grok` | Grok (grok.com) | X / xAI (free) | Works end to end (2026-10-27, logged in to a free account). |
 | `google-ai-mode` | Google AI Mode | optional | Works end to end, but the answer includes citation labels, follow-up suggestions and a footer. |
 | `bing` | Bing AI Mode (Copilot Search) | optional | Works end to end (the answer is read from an iframe). |
 
@@ -457,7 +458,7 @@ pampas-cli scrape add deepseek --url https://chat.deepseek.com/ --browser \
   --settle-secs 6 --daily-limit 20
 ```
 
-Any option you give wins over the built-in value. Giving `--url` turns the built-in setup off, since you are then describing a different address. The built-in sites are `deepseek`, `chatgpt`, `copilot`, `duckduckgo`, `deepai`, `perplexity`, `qwen`, `zai`, `kimi`, `mistral`, `google-ai-mode` and `bing`; any other name needs `--url`.
+Any option you give wins over the built-in value. Giving `--url` turns the built-in setup off, since you are then describing a different address. The built-in sites are `deepseek`, `chatgpt`, `copilot`, `duckduckgo`, `deepai`, `perplexity`, `qwen`, `zai`, `kimi`, `mistral`, `grok`, `google-ai-mode` and `bing`; any other name needs `--url`.
 
 Bing's AI Mode (Copilot Search) is built in as `bing` (`pampas-cli scrape add bing`, then `pampas-cli --scrape --only bing "your question"`). Typed out:
 
@@ -569,6 +570,19 @@ pampas-cli scrape add mistral --url https://chat.mistral.ai/work --browser \
 ```
 
 The answer is the element Mistral marks as the answer part, so thinking and tool steps are left out. **Extra risk:** the account can be limited or suspended for automated use, and each question shows up in its chat history.
+
+Grok is built in as `grok` (`pampas-cli scrape add grok`, then `pampas-cli --scrape --only grok "your question"`). It needs an X or xAI account (a free one is enough): log in in the window that opens, choose a cookie preference, clear any pop-ups until the "Ask Grok anything" box shows, then quit the browser. Selectors were checked on the live page on 2026-10-27 on a logged-in free account, on one short answer, and the source was run end to end through pampas the same day. Typed out:
+
+```
+pampas-cli scrape add grok --url https://grok.com/ --browser \
+  --input-selector 'div[aria-label="Ask Grok anything"]' \
+  --submit-selector 'button[aria-label="Submit"]' \
+  --selector '[id^="response-"].items-start .response-content-markdown' \
+  --busy-selector 'button[aria-label="Stop model response"]' \
+  --settle-secs 5 --daily-limit 20
+```
+
+Grok marks your own message and its reply with the same markup; the answer selector keeps only the assistant's row. **Extra risk:** the account can be limited or suspended for automated use, free use has daily limits, and each question shows up in the account's chat history.
 
 Microsoft 365 Copilot chat is built in as `copilot` (`pampas-cli scrape add copilot`, then `pampas-cli --scrape --only copilot "your question"`). It needs a Microsoft 365 account, which you log in to in the login window. Typed out:
 

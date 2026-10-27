@@ -4,6 +4,7 @@ Status: `[ ]` open, `[~]` in progress, `[x]` done.
 
 ## Open
 
+- [ ] `grok`: check a longer answer.
 - [ ] `mistral`: check an answer with several paragraphs (the answer attribute may be on each paragraph's part, and pampas reads only the last match).
 - [ ] `kimi`: check a longer answer with thinking.
 - [ ] `zai`: check the settle time against a long answer with thinking (there is no busy marker).
@@ -35,6 +36,7 @@ Status: `[ ]` open, `[~]` in progress, `[x]` done.
 
 ## Done
 
+- [x] `grok` built-in site run through pampas end to end (0.9.3).
 - [x] `mistral` built-in site run through pampas end to end (0.9.1).
 - [x] `kimi` built-in site run through pampas end to end (0.8.9).
 - [x] `zai` built-in site run through pampas end to end (0.8.7).
