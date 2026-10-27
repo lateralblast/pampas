@@ -271,15 +271,28 @@ async fn drive(cfg: &ScrapeConfig, prompt: &str, input: &str, answer: &str, prof
                 "(() => {{ const b = document.querySelector({}); \
                  if (!b || b.disabled || b.getAttribute('aria-disabled') === 'true' || !b.getClientRects().length) return null; \
                  b.scrollIntoView({{ block: 'center' }}); const r = b.getBoundingClientRect(); \
-                 return {{ x: r.left + r.width / 2, y: r.top + r.height / 2 }}; }})()",
+                 const x = r.left + r.width / 2, y = r.top + r.height / 2; \
+                 const hit = document.elementFromPoint(x, y); \
+                 if (!hit || !b.contains(hit)) return null; \
+                 return {{ x, y }}; }})()",
                 js(sel)
             );
+            // The button can still be moving when it first appears (an input box that grows as text is
+            // typed), so click only once two reads 200 ms apart agree, and the button itself is what is at that point (the page
+            // can still be laying out, leaving something else there).
             let end = Instant::now() + Duration::from_secs(10);
+            let mut last: Option<(f64, f64)> = None;
             let spot = loop {
                 let at = page.eval(&locate).await?;
                 if let (Some(x), Some(y)) = (at["x"].as_f64(), at["y"].as_f64()) {
-                    break (x, y);
+                    if last.is_some_and(|(lx, ly)| (lx - x).abs() < 1.0 && (ly - y).abs() < 1.0) {
+                        break (x, y);
+                    }
+                    last = Some((x, y));
+                    tokio::time::sleep(Duration::from_millis(200)).await;
+                    continue;
                 }
+                last = None;
                 anyhow::ensure!(Instant::now() < end, "the submit button `{sel}` was not found or stayed disabled");
                 tokio::time::sleep(Duration::from_millis(300)).await;
             };

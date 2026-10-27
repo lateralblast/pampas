@@ -2,7 +2,7 @@
 
 # pampas
 
-Version: 0.7.8
+Version: 0.9.1
 
 **pampas** is short for Parallel AI Multi-provider Prompt Aggregator & Synthesizer: a command-line tool and desktop app that send one prompt to several free AI services in parallel and merge the results.
 
@@ -429,7 +429,11 @@ Status of the built-in sites (`pampas-cli scrape add <name>`), as tried on Linux
 | `chatgpt` | ChatGPT | OpenAI | Works end to end. The "still writing" marker was not seen mid-answer. |
 | `copilot` | Microsoft 365 Copilot chat | Microsoft 365 | Works end to end (Enter does not send there, so the Send button is clicked). |
 | `duckduckgo` | DuckDuckGo AI chat (duck.ai) | none | Works end to end. The stop-button marker was not seen mid-answer. |
-| `deepai` | DeepAI chat | none | Untested: selectors read from the page's HTML and script on 2026-10-25, not yet run in a browser. |
+| `deepai` | DeepAI chat | none | Works end to end (2026-10-27, signed out). The stop button was seen while the answer was written. |
+| `perplexity` | Perplexity | none | Works end to end (2026-10-27, signed out). The answer ends with a citation label. |\n| `qwen` | Qwen Chat | Qwen (free) | Works end to end (2026-10-27, logged in to a free account); signed-out use was not checked. |
+| `zai` | Z.ai chat (GLM) | Z.ai (free) | Works end to end (2026-10-27, logged in to a free account). The answer starts with a "Thought Process" line; no busy marker. |
+| `kimi` | Kimi chat (kimi.ai) | Kimi (free) | Works end to end (2026-10-27, logged in to a free account). |
+| `mistral` | Mistral chat (Vibe Work) | Mistral (free) | Works end to end (2026-10-27, logged in to a free account). |
 | `google-ai-mode` | Google AI Mode | optional | Works end to end, but the answer includes citation labels, follow-up suggestions and a footer. |
 | `bing` | Bing AI Mode (Copilot Search) | optional | Works end to end (the answer is read from an iframe). |
 
@@ -453,7 +457,7 @@ pampas-cli scrape add deepseek --url https://chat.deepseek.com/ --browser \
   --settle-secs 6 --daily-limit 20
 ```
 
-Any option you give wins over the built-in value. Giving `--url` turns the built-in setup off, since you are then describing a different address. The built-in sites are `deepseek`, `chatgpt`, `copilot`, `duckduckgo`, `deepai`, `google-ai-mode` and `bing`; any other name needs `--url`.
+Any option you give wins over the built-in value. Giving `--url` turns the built-in setup off, since you are then describing a different address. The built-in sites are `deepseek`, `chatgpt`, `copilot`, `duckduckgo`, `deepai`, `perplexity`, `qwen`, `zai`, `kimi`, `mistral`, `google-ai-mode` and `bing`; any other name needs `--url`.
 
 Bing's AI Mode (Copilot Search) is built in as `bing` (`pampas-cli scrape add bing`, then `pampas-cli --scrape --only bing "your question"`). Typed out:
 
@@ -490,7 +494,7 @@ pampas-cli scrape add duckduckgo --url https://duck.ai/chat --browser \
 
 The window that opens after `scrape add` is for one step: the first time, DuckDuckGo asks you to click **Continue** to accept its terms of service; click it and close the window (the setting is kept in the pampas profile, which is separate from your own browser). Selectors checked on 2026-10-23; the answer selector skips the "said GPT-… · 1s" header and "2nd opinion" button that the answer's container also holds, and the busy marker (the stop button, which is on the page but disabled when idle) was not seen while an answer was being written. DuckDuckGo limits requests per address and may ask for a check if it sees automated use.
 
-DeepAI's chat is built in as `deepai` (`pampas-cli scrape add deepai`, then `pampas-cli --scrape --only deepai "your question"`). It needs no account. **Untested:** the selectors were read from the page's HTML and script (2026-10-25), not seen working in a browser. Typed out:
+DeepAI's chat is built in as `deepai` (`pampas-cli scrape add deepai`, then `pampas-cli --scrape --only deepai "your question"`). It needs no account. It works end to end through pampas (2026-10-27, signed out). The selectors were checked on the live page: Enter sends, the stop button was seen while the answer was written, and each answer matches twice because the page nests one `.markdownContainer` inside another (pampas reads the last match, so this is harmless). Typed out:
 
 ```
 pampas-cli scrape add deepai --url https://deepai.org/chat --browser \
@@ -502,6 +506,69 @@ pampas-cli scrape add deepai --url https://deepai.org/chat --browser \
 ```
 
 The window that opens after `scrape add` needs no login: make sure the "Message AI Chat..." box is there, then close it. DeepAI limits free use, some models need DeepAI Pro, and it may ask for a check or limit your address if it sees automated use.
+
+Perplexity is built in as `perplexity` (`pampas-cli scrape add perplexity`, then `pampas-cli --scrape --only perplexity "your question"`). It needs no account. Selectors were checked on the live page and the source was run end to end through pampas on 2026-10-27, signed out. Typed out:
+
+```
+pampas-cli scrape add perplexity --url https://www.perplexity.ai/ --browser \
+  --input-selector '#ask-input' \
+  --selector '.prose' \
+  --busy-selector 'button[aria-label^="Stop response"]' \
+  --settle-secs 4 --daily-limit 20
+```
+
+Enter sends. The answer ends with a citation label (for example `britannica`), which a selector cannot leave out. Perplexity limits signed-out use, and may show a Cloudflare or sign-in check, which pampas will not solve and which looks like a missing input box.
+
+Qwen Chat is built in as `qwen` (`pampas-cli scrape add qwen`, then `pampas-cli --scrape --only qwen "your question"`). It needs a Qwen account (a free one is enough), which you log in to in the login window; quit the browser when you can see the "How can I help you today?" box. Selectors were checked on the live page on 2026-10-27 on a logged-in free account, and the source was run end to end through pampas the same day; signed-out use was not checked. Typed out:
+
+```
+pampas-cli scrape add qwen --url https://chat.qwen.ai/ --browser \
+  --input-selector 'textarea.message-input-textarea' \
+  --submit-selector 'button.send-button' \
+  --selector '.custom-qwen-markdown' \
+  --busy-selector 'button.stop-button' \
+  --settle-secs 5 --daily-limit 20
+```
+
+pampas's Enter key does not send in Qwen (it does in a real browser), so the Send button is clicked. The answer selector leaves out the "Thinking completed" header that the response container also holds. **Extra risk:** the account can be limited or suspended for automated use, and each question shows up in that account's chat history.
+
+Z.ai's chat is built in as `zai` (`pampas-cli scrape add zai`, then `pampas-cli --scrape --only zai "your question"`). It needs a Z.ai account (a free one is enough): log in in the window that opens, click through any pop-ups until the "Send a Message" box shows, then quit the browser. Selectors were checked on the live page on 2026-10-27 on a logged-in free account, on two answers, and the source was run end to end through pampas the same day. Typed out:
+
+```
+pampas-cli scrape add zai --url https://chat.z.ai/ --browser \
+  --input-selector '#chat-input' \
+  --submit-selector '#send-message-button' \
+  --selector '#response-content-container .markdown-prose' \
+  --settle-secs 8 --daily-limit 20
+```
+
+The answer starts with a "Thought Process" line, because the thinking header and the answer paragraphs sit side by side in one container and a selector cannot separate them. There is no busy marker: while an answer is written the Send button is replaced by an unlabelled stop button with no stable selector, so pampas relies on the 8-second settle time and a long pause while it thinks could cut an answer short (raise `--settle-secs` if so). **Extra risk:** the account can be limited or suspended for automated use, and each question shows up in its chat history.
+
+Kimi's chat outside China is built in as `kimi` (`pampas-cli scrape add kimi`, then `pampas-cli --scrape --only kimi "your question"`; it uses `https://www.kimi.ai/`). It needs a Kimi account (a free one is enough): log in in the window that opens, click through any pop-ups or onboarding cards until the "Ask anything" box shows, then quit the browser. Selectors were checked on the live page on 2026-10-27 on a logged-in free account, on one short answer, and the source was run end to end through pampas the same day. Typed out:
+
+```
+pampas-cli scrape add kimi --url https://www.kimi.ai/ --browser \
+  --input-selector '.chat-input-editor' \
+  --submit-selector '.send-button-container:not(.disabled)' \
+  --selector '.chat-content-item-assistant .markdown' \
+  --busy-selector '.send-button-container.stop' \
+  --settle-secs 5 --daily-limit 20
+```
+
+The answer is the last `.markdown` block of the assistant message; when Kimi thinks first, the thinking is the block before it, so it is left out once the answer appears. **Extra risk:** the account can be limited or suspended for automated use, and each question shows up in its chat history.
+
+Mistral's chat is built in as `mistral` (`pampas-cli scrape add mistral`, then `pampas-cli --scrape --only mistral "your question"`). It needs a Mistral account (a free one is enough): log in in the window that opens, click through any pop-ups or setup cards until the message box shows, then quit the browser. It uses `https://chat.mistral.ai/work`, because Mistral now sends `chat.mistral.ai/chat` there: the page is called Vibe Work, and its answers can use tools and agents. Selectors were checked on the live page on 2026-10-27 on a logged-in free account, on one short answer, and the source was run end to end through pampas the same day. Typed out:
+
+```
+pampas-cli scrape add mistral --url https://chat.mistral.ai/work --browser \
+  --input-selector '.ProseMirror' \
+  --submit-selector 'button[aria-label="Send"]' \
+  --selector '[data-message-part-type="answer"]' \
+  --busy-selector 'button[aria-label="Stop generation"]' \
+  --settle-secs 5 --daily-limit 20
+```
+
+The answer is the element Mistral marks as the answer part, so thinking and tool steps are left out. **Extra risk:** the account can be limited or suspended for automated use, and each question shows up in its chat history.
 
 Microsoft 365 Copilot chat is built in as `copilot` (`pampas-cli scrape add copilot`, then `pampas-cli --scrape --only copilot "your question"`). It needs a Microsoft 365 account, which you log in to in the login window. Typed out:
 

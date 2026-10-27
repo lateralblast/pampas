@@ -4,6 +4,88 @@ Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-10-27
+
+### Changed
+
+- The built-in `mistral` setup has been run end to end through pampas on a logged-in free account and works; the README and the setup's note now say so.
+
+## [0.9.0] - 2026-10-27
+
+### Added
+
+- `pampas-cli scrape add mistral` adds Mistral's chat (`https://chat.mistral.ai/work`, a free Mistral account) from a twelfth built-in setup, with a warning about account limits and pop-ups. Mistral now sends `chat.mistral.ai/chat` to this page, which it calls Vibe Work. Selectors were checked on the live page on a logged-in free account: the question is sent with the Send button, the busy marker is the Stop generation button, and the answer is the element marked `data-message-part-type="answer"`, which leaves out the thinking. It has not yet been run through pampas.
+
+## [0.8.9] - 2026-10-27
+
+### Changed
+
+- The built-in `kimi` setup has been run end to end through pampas on a logged-in free account and works; the README and the setup's note now say so.
+
+## [0.8.8] - 2026-10-27
+
+### Added
+
+- `pampas-cli scrape add kimi` adds Kimi's chat outside China (`https://www.kimi.ai/`, a free Kimi account) from an eleventh built-in setup, with a warning about account limits and pop-ups. Selectors were checked on the live page on a logged-in free account: the question is sent with the Send button, the busy marker is the Send button's `stop` state, and the answer is the last `.markdown` block of the assistant message (the one before it is the thinking). It has not yet been run through pampas.
+
+## [0.8.7] - 2026-10-27
+
+### Changed
+
+- The built-in `zai` setup has been run end to end through pampas on a logged-in free account and works; the README and the setup's note now say so.
+
+## [0.8.6] - 2026-10-27
+
+### Added
+
+- `pampas-cli scrape add zai` adds Z.ai's chat (`https://chat.z.ai/`, a free Z.ai account) from a tenth built-in setup, with a warning about account limits and pop-ups. Selectors were checked on the live page on a logged-in free account: the question is sent with the Send button, and the answer is read from `#response-content-container .markdown-prose`, which begins with a "Thought Process" line. There is no busy marker, so it relies on a settle time of 8 seconds. It has not yet been run through pampas.
+
+## [0.8.5] - 2026-10-27
+
+### Changed
+
+- The built-in `qwen` setup has been run end to end through pampas on a logged-in free account and works; the README and the setup's note now say so.
+
+### Fixed
+
+- A browser source's Send button was clicked while still moving, so on Qwen (whose input box animates as text is typed) the click landed on the button's edge and the question was never sent. pampas now waits until the button has stopped moving, and is the element at the click point, before it clicks (the page can still be laying out, leaving another element at the spot where the button was first measured).
+
+## [0.8.4] - 2026-10-27
+
+### Fixed
+
+- The built-in `qwen` setup typed the question but did not send it: Qwen ignores the Enter key pampas sends. It now clicks Qwen's Send button (`button.send-button`). Rebuild the source with `pampas-cli scrape remove qwen` and `pampas-cli scrape add qwen` to pick this up.
+
+## [0.8.3] - 2026-10-27
+
+### Added
+
+- `pampas-cli scrape add qwen` adds Qwen Chat (`https://chat.qwen.ai/`, a free Qwen account) from a ninth built-in setup, with a warning about account limits. Selectors were checked on the live page on a logged-in free account: Enter sends, and the answer is read from `.custom-qwen-markdown`, which leaves out the "Thinking completed" header. It has not yet been run through pampas, and signed-out use was not checked.
+
+## [0.8.2] - 2026-10-27
+
+### Changed
+
+- The built-in `deepai` setup has been run end to end through pampas (signed out) and works; the README and the setup's note now say so.
+
+## [0.8.1] - 2026-10-27
+
+### Changed
+
+- The built-in `deepai` setup's selectors were checked on DeepAI's live page (Enter sends, the stop button appears while the answer is written, the answer is read from the last `.markdownContainer`); the README and the setup's note now say so. It has not yet been run through pampas.
+
+## [0.8.0] - 2026-10-27
+
+### Changed
+
+- The built-in `perplexity` setup has been run end to end through pampas (signed out) and works; the README and the setup's note now say so.
+
+## [0.7.9] - 2026-10-27
+
+### Added
+
+- `pampas-cli scrape add perplexity` adds Perplexity (`https://www.perplexity.ai/`, no account needed) from an eighth built-in setup. Selectors were checked on the live page in a signed-out browser: Enter sends, and the answer ends with a citation label such as `britannica`. Perplexity may show a Cloudflare or sign-in check, which pampas does not get past.
+
 ## [0.7.8] - 2026-10-27
 
 ### Fixed

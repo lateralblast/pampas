@@ -122,9 +122,79 @@ Preset {
     answer_frame: None,
     settle_secs: 5,
     daily_limit: 20,
-    checked: "selectors read from the page's HTML and script on 2026-10-25, not yet tried in a browser",
+    checked: "works end to end 2026-10-27 (Enter sends, the stop button was seen while writing; each answer matches twice because the page nests two containers, and the last is read)",
     warning: Some("DeepAI's chat works without an account but limits free use, and some models need DeepAI Pro. Its terms apply to automated use too, and it may ask for a check or limit your address if it sees automated use."),
     first_run: Some("no login is needed: accept or dismiss any banner, make sure you can see the \"Message AI Chat...\" box, then close the window."),
+},
+Preset {
+    name: "perplexity",
+    url: "https://www.perplexity.ai/",
+    input_selector: "#ask-input",
+    selector: ".prose",
+    submit_selector: None,
+    busy_selector: Some("button[aria-label^=\"Stop response\"]"),
+    answer_frame: None,
+    settle_secs: 4,
+    daily_limit: 20,
+    checked: "works end to end 2026-10-27 in a signed-out browser; the answer ends with a citation label such as \"britannica\"",
+    warning: Some("Perplexity limits signed-out use to a few searches, may show a Cloudflare or sign-in check for automated use (pampas will not solve it, and it looks like a missing input box), and its terms apply to automated use too."),
+    first_run: Some("no login is needed: dismiss any sign-in or cookie prompt, make sure you can see the question box, then quit the browser."),
+},
+Preset {
+    name: "qwen",
+    url: "https://chat.qwen.ai/",
+    input_selector: "textarea.message-input-textarea",
+    selector: ".custom-qwen-markdown",
+    submit_selector: Some("button.send-button"),
+    busy_selector: Some("button.stop-button"),
+    answer_frame: None,
+    settle_secs: 5,
+    daily_limit: 20,
+    checked: "selectors checked 2026-10-27 on a logged-in free account, one short answer; works end to end 2026-10-27 on a logged-in free account; pampas's Enter key does not send there, so the Send button is clicked",
+    warning: Some("Qwen Chat uses your Qwen account: the account, not only the IP address, can be limited or suspended for automated use, and every question appears in that account's chat history. Alibaba's terms apply to automated use too. Whether it works signed out was not checked."),
+    first_run: Some("log in to Qwen (a free account is enough) until you can see the \"How can I help you today?\" box, then quit the browser."),
+},
+Preset {
+    name: "zai",
+    url: "https://chat.z.ai/",
+    input_selector: "#chat-input",
+    selector: "#response-content-container .markdown-prose",
+    submit_selector: Some("#send-message-button"),
+    busy_selector: None,
+    answer_frame: None,
+    settle_secs: 8,
+    daily_limit: 20,
+    checked: "works end to end 2026-10-27 on a logged-in free account; no busy marker (the Send button is replaced by an unlabelled stop button while it writes); the answer starts with a \"Thought Process\" line",
+    warning: Some("Z.ai uses your Z.ai account: the account, not only the IP address, can be limited or suspended for automated use, every question appears in that account's chat history, and the site may show pop-ups (announcements, subscription offers) that pampas does not dismiss. Its terms apply to automated use too."),
+    first_run: Some("log in to Z.ai (a free account is enough) and click through any pop-ups until you can see the \"Send a Message\" box, then quit the browser."),
+},
+Preset {
+    name: "kimi",
+    url: "https://www.kimi.ai/",
+    input_selector: ".chat-input-editor",
+    selector: ".chat-content-item-assistant .markdown",
+    submit_selector: Some(".send-button-container:not(.disabled)"),
+    busy_selector: Some(".send-button-container.stop"),
+    answer_frame: None,
+    settle_secs: 5,
+    daily_limit: 20,
+    checked: "works end to end 2026-10-27 on a logged-in free account; the last match is the answer, the one before it is the thinking",
+    warning: Some("Kimi uses your Kimi account: the account, not only the IP address, can be limited or suspended for automated use, every question appears in that account's chat history, and the site may show pop-ups or onboarding cards that pampas does not dismiss. Its terms apply to automated use too."),
+    first_run: Some("log in to Kimi (a free account is enough) and click through any pop-ups or onboarding cards until you can see the \"Ask anything\" box, then quit the browser."),
+},
+Preset {
+    name: "mistral",
+    url: "https://chat.mistral.ai/work",
+    input_selector: ".ProseMirror",
+    selector: "[data-message-part-type=\"answer\"]",
+    submit_selector: Some("button[aria-label=\"Send\"]"),
+    busy_selector: Some("button[aria-label=\"Stop generation\"]"),
+    answer_frame: None,
+    settle_secs: 5,
+    daily_limit: 20,
+    checked: "works end to end 2026-10-27 on a logged-in free account; chat.mistral.ai/chat redirects to this page, which Mistral calls Vibe Work",
+    warning: Some("Mistral uses your Mistral account: the account, not only the IP address, can be limited or suspended for automated use, every question appears in that account's chat history, and the site may show pop-ups or setup cards that pampas does not dismiss. Its terms apply to automated use too. This page is Mistral's Vibe Work, whose answers can use tools and agents."),
+    first_run: Some("log in to Mistral (a free account is enough) and click through any pop-ups or setup cards until you can see the message box, then quit the browser."),
 },
 Preset {
     name: "google-ai-mode",
@@ -684,6 +754,12 @@ mod tests {
         assert_eq!(preset("duckduckgo").unwrap().url, "https://duck.ai/chat");
         assert_eq!(preset("deepai").unwrap().url, "https://deepai.org/chat");
         assert!(preset("deepai").unwrap().submit_selector.is_some());
+        assert_eq!(preset("perplexity").unwrap().input_selector, "#ask-input");
+        assert_eq!(preset("qwen").unwrap().url, "https://chat.qwen.ai/");
+        assert_eq!(preset("mistral").unwrap().url, "https://chat.mistral.ai/work");
+        assert_eq!(preset("kimi").unwrap().url, "https://www.kimi.ai/");
+        assert_eq!(preset("zai").unwrap().submit_selector, Some("#send-message-button"));
+        assert_eq!(preset("qwen").unwrap().submit_selector, Some("button.send-button"));
         assert!(preset("google-ai-mode").unwrap().url.contains("udm=50"));
         assert!(preset("copilot").unwrap().submit_selector.is_some());
         assert!(preset("deepseek").unwrap().submit_selector.is_none());

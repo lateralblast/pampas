@@ -4,7 +4,7 @@ resolver = "3"
 
 [package]
 name = "pampas"
-version = "0.7.8"
+version = "0.9.1"
 description = "Parallel AI Multi-provider Prompt Aggregator & Synthesizer"
 edition = "2024"
 
