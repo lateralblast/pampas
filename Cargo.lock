@@ -2896,7 +2896,7 @@ dependencies = [
 
 [[package]]
 name = "pampas"
-version = "0.9.3"
+version = "0.9.5"
 dependencies = [
  "anyhow",
  "clap",
@@ -2914,7 +2914,7 @@ dependencies = [
 
 [[package]]
 name = "pampas-gui"
-version = "0.9.3"
+version = "0.9.5"
 dependencies = [
  "anyhow",
  "pampas",

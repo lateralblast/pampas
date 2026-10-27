@@ -1,6 +1,6 @@
 [package]
 name = "pampas-gui"
-version = "0.9.3"
+version = "0.9.5"
 description = "Desktop app for pampas"
 edition = "2024"
 

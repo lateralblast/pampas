@@ -2,7 +2,7 @@
 
 # pampas
 
-Version: 0.9.3
+Version: 0.9.5
 
 **pampas** is short for Parallel AI Multi-provider Prompt Aggregator & Synthesizer: a command-line tool and desktop app that send one prompt to several free AI services in parallel and merge the results.
 
@@ -435,6 +435,7 @@ Status of the built-in sites (`pampas-cli scrape add <name>`), as tried on Linux
 | `kimi` | Kimi chat (kimi.ai) | Kimi (free) | Works end to end (2026-10-27, logged in to a free account). |
 | `mistral` | Mistral chat (Vibe Work) | Mistral (free) | Works end to end (2026-10-27, logged in to a free account). |
 | `grok` | Grok (grok.com) | X / xAI (free) | Works end to end (2026-10-27, logged in to a free account). |
+| `arena` | Arena (arena.ai, formerly LMArena) | optional | Works end to end (2026-10-27). Two anonymous models answer; the last is read. No busy marker. |
 | `google-ai-mode` | Google AI Mode | optional | Works end to end, but the answer includes citation labels, follow-up suggestions and a footer. |
 | `bing` | Bing AI Mode (Copilot Search) | optional | Works end to end (the answer is read from an iframe). |
 
@@ -458,7 +459,7 @@ pampas-cli scrape add deepseek --url https://chat.deepseek.com/ --browser \
   --settle-secs 6 --daily-limit 20
 ```
 
-Any option you give wins over the built-in value. Giving `--url` turns the built-in setup off, since you are then describing a different address. The built-in sites are `deepseek`, `chatgpt`, `copilot`, `duckduckgo`, `deepai`, `perplexity`, `qwen`, `zai`, `kimi`, `mistral`, `grok`, `google-ai-mode` and `bing`; any other name needs `--url`.
+Any option you give wins over the built-in value. Giving `--url` turns the built-in setup off, since you are then describing a different address. The built-in sites are `deepseek`, `chatgpt`, `copilot`, `duckduckgo`, `deepai`, `perplexity`, `qwen`, `zai`, `kimi`, `mistral`, `grok`, `arena`, `google-ai-mode` and `bing`; any other name needs `--url`.
 
 Bing's AI Mode (Copilot Search) is built in as `bing` (`pampas-cli scrape add bing`, then `pampas-cli --scrape --only bing "your question"`). Typed out:
 
@@ -583,6 +584,18 @@ pampas-cli scrape add grok --url https://grok.com/ --browser \
 ```
 
 Grok marks your own message and its reply with the same markup; the answer selector keeps only the assistant's row. **Extra risk:** the account can be limited or suspended for automated use, free use has daily limits, and each question shows up in the account's chat history.
+
+Arena (formerly LMArena) is built in as `arena` (`pampas-cli scrape add arena`, then `pampas-cli --scrape --only arena "your question"`). An account is optional: choose a cookie preference and clear any pop-ups until the "Ask anything" box shows, then quit the browser. Selectors were checked on the live page on 2026-10-27, on one short answer, and the source was run end to end through pampas the same day. Typed out:
+
+```
+pampas-cli scrape add arena --url https://arena.ai/ --browser \
+  --input-selector 'textarea[name="message"]' \
+  --submit-selector 'button[aria-label="Send message"]' \
+  --selector '[class*="carousel"] .prose' \
+  --settle-secs 6 --daily-limit 20
+```
+
+Arena answers with **two anonymous models** side by side, so the answer is one unnamed model's and can differ between questions; pampas reads the last of the two. The selector stays inside the answers' carousel because your own question uses the same markup. There is no busy marker, so it relies on the settle time. Arena may ask for a reCAPTCHA, which pampas will not solve (it looks like a failed send), it records questions and may publish them in its public data, and its terms apply to automated use.
 
 Microsoft 365 Copilot chat is built in as `copilot` (`pampas-cli scrape add copilot`, then `pampas-cli --scrape --only copilot "your question"`). It needs a Microsoft 365 account, which you log in to in the login window. Typed out:
 

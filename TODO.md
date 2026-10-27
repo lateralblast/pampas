@@ -4,6 +4,7 @@ Status: `[ ]` open, `[~]` in progress, `[x]` done.
 
 ## Open
 
+- [ ] `arena`: check a longer answer, and whether a direct (one-model) mode is a better target than Battle, which returns an unnamed model's answer.
 - [ ] `grok`: check a longer answer.
 - [ ] `mistral`: check an answer with several paragraphs (the answer attribute may be on each paragraph's part, and pampas reads only the last match).
 - [ ] `kimi`: check a longer answer with thinking.
@@ -36,6 +37,7 @@ Status: `[ ]` open, `[~]` in progress, `[x]` done.
 
 ## Done
 
+- [x] `arena` built-in site run through pampas end to end (0.9.5).
 - [x] `grok` built-in site run through pampas end to end (0.9.3).
 - [x] `mistral` built-in site run through pampas end to end (0.9.1).
 - [x] `kimi` built-in site run through pampas end to end (0.8.9).

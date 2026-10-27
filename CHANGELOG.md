@@ -4,6 +4,18 @@ Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.9.5] - 2026-10-27
+
+### Changed
+
+- The built-in `arena` setup has been run end to end through pampas and works; the README and the setup's note now say so.
+
+## [0.9.4] - 2026-10-27
+
+### Added
+
+- `pampas-cli scrape add arena` adds Arena (formerly LMArena, `https://arena.ai/`) from a fourteenth built-in setup, with a warning that it answers with two anonymous models side by side, may ask for a reCAPTCHA (which pampas does not solve) and records questions. Selectors were checked on the live page: the question is sent with the Send message button and the answer is read from the answers' carousel, which leaves out your own question; with two models the last one is read. It has not yet been run through pampas, and no busy marker was found, so it relies on a settle time of 6 seconds.
+
 ## [0.9.3] - 2026-10-27
 
 ### Changed

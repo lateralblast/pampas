@@ -211,6 +211,20 @@ Preset {
     first_run: Some("log in to Grok (a free account is enough), choose a cookie preference and clear any pop-ups until you can see the \"Ask Grok anything\" box, then quit the browser."),
 },
 Preset {
+    name: "arena",
+    url: "https://arena.ai/",
+    input_selector: "textarea[name=\"message\"]",
+    selector: "[class*=\"carousel\"] .prose",
+    submit_selector: Some("button[aria-label=\"Send message\"]"),
+    busy_selector: None,
+    answer_frame: None,
+    settle_secs: 6,
+    daily_limit: 20,
+    checked: "works end to end 2026-10-27 on a logged-in account; the page answers with two anonymous models side by side and the last is read; no busy marker was seen",
+    warning: Some("Arena (formerly LMArena) answers with two anonymous models side by side, so the answer is one unnamed model's, which changes from question to question. It asks for a reCAPTCHA on some requests (pampas will not solve it, and it looks like a failed send), questions are recorded and may be published as part of its public data, and its terms apply to automated use."),
+    first_run: Some("log in if you want to (it works without), choose a cookie preference and clear any pop-ups until you can see the \"Ask anything\" box, then quit the browser."),
+},
+Preset {
     name: "google-ai-mode",
     url: "https://www.google.com/search?udm=50",
     input_selector: "textarea[aria-label=\"Ask anything\"]",
@@ -770,6 +784,7 @@ mod tests {
         assert!(preset("deepai").unwrap().submit_selector.is_some());
         assert_eq!(preset("perplexity").unwrap().input_selector, "#ask-input");
         assert_eq!(preset("qwen").unwrap().url, "https://chat.qwen.ai/");
+        assert_eq!(preset("arena").unwrap().url, "https://arena.ai/");
         assert_eq!(preset("grok").unwrap().url, "https://grok.com/");
         assert_eq!(preset("mistral").unwrap().url, "https://chat.mistral.ai/work");
         assert_eq!(preset("kimi").unwrap().url, "https://www.kimi.ai/");
