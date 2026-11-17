@@ -42,15 +42,20 @@ export async function refresh(): Promise<void> {
   } catch {
     state.settings = [];
   }
-  try {
-    // Sessions the interface used to keep in local storage move into the history file once.
-    if (!state.loaded) {
+  // Sessions the interface used to keep in local storage move into the history file once. If that
+  // fails, the history is still listed, and the move is tried again next time.
+  if (!state.loaded) {
+    try {
       const old = legacyHistory();
       if (old.length) {
         await api.importHistory(old);
         clearLegacyHistory();
       }
+    } catch {
+      // keep the old copy
     }
+  }
+  try {
     state.history = await api.listHistory();
   } catch {
     state.history = [];

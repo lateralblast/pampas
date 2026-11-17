@@ -316,6 +316,8 @@ export function mountAsk(root: HTMLElement, host: AskHost): void {
       onNavigate: host.go,
       onMessage: (kind, text) => (kind === "error" ? host.error(text) : host.notice(text)),
       onAskAgain: () => {
+        // Ask this edition's question again, not whatever has been typed into the box since.
+        if (edition) prompt.value = edition.prompt;
         saved = false;
         prompt.focus();
         void ask();
@@ -405,6 +407,11 @@ export function mountAsk(root: HTMLElement, host: AskHost): void {
       if (loadPrefs().keepHistory && (current.asked.length || current.skipped.length)) {
         try {
           await api.saveHistory(current);
+          // A saved edition can be asked again; draw it again so the button appears (unless a newer question has replaced it).
+          if (edition === current) {
+            saved = true;
+            drawEdition();
+          }
         } catch (e) {
           host.error(`This question could not be saved to the history: ${e instanceof Error ? e.message : String(e)}`);
         }

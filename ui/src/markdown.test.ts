@@ -56,3 +56,11 @@ test("source names in text become siglum marks, longest and whole names only", (
   assert.ok(html.includes('<span class="ref">Gemini<button type="button" class="sig" data-ref="gemini" aria-label="Show the answer from gemini">c</button></span>'), html);
   assert.ok(html.includes("groqs is not a source"), html);
 });
+
+test("underscores and asterisks in a shown address are kept", () => {
+  const html = renderInline("see [docs](https://example.com/_next_/a*b*c) and *it*");
+  assert.ok(html.includes("(https://example.com/_next_/a*b*c)"), html);
+  assert.ok(html.includes('title="https://example.com/_next_/a*b*c"'), html);
+  assert.ok(!html.includes("<em>next"), html);
+  assert.ok(html.includes("<em>it</em>"), html);
+});

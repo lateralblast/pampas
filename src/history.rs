@@ -77,22 +77,40 @@ impl Store {
         &self.path
     }
 
-    /// Every session, newest first. A missing file is no history; an unreadable one is moved to
+    /// Every valid session, newest first. A missing file is no history; an unreadable one is moved to
     /// `history.json.corrupt` (so nothing is lost) and history starts again empty.
     pub fn load(&self) -> anyhow::Result<Vec<Value>> {
+        Ok(self.load_all()?.into_iter().filter(|s| check(s).is_ok()).collect())
+    }
+
+    /// Every entry in the file, valid or not, so a rewrite does not delete what this version cannot read
+    /// (a session saved by a newer version, say).
+    fn load_all(&self) -> anyhow::Result<Vec<Value>> {
         let text = match std::fs::read_to_string(&self.path) {
             Ok(text) => text,
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
             Err(e) => return Err(e).with_context(|| format!("reading {}", self.path.display())),
         };
         match serde_json::from_str::<Value>(&text).ok().and_then(|v| v.get("sessions").and_then(Value::as_array).cloned()) {
-            Some(list) => Ok(list.into_iter().filter(|s| check(s).is_ok()).collect()),
+            Some(list) => Ok(list),
             None => {
                 let aside = self.path.with_extension("json.corrupt");
                 let _ = std::fs::rename(&self.path, &aside);
                 Ok(Vec::new())
             }
         }
+    }
+
+    /// Change the entries under a lock, so two writers (two windows, the app and a command) cannot drop
+    /// each other's change. `change` returns what to give back and whether to write the file.
+    fn modify<T>(&self, change: impl FnOnce(&mut Vec<Value>) -> (T, bool)) -> anyhow::Result<T> {
+        let _lock = crate::filelock::lock(&self.path.with_extension("json.lock"));
+        let mut sessions = self.load_all()?;
+        let (out, write) = change(&mut sessions);
+        if write {
+            self.write(sessions)?;
+        }
+        Ok(out)
     }
 
     fn write(&self, mut sessions: Vec<Value>) -> anyhow::Result<()> {
@@ -119,48 +137,46 @@ impl Store {
     /// Add a session, or replace the one with the same id.
     pub fn save(&self, session: Value) -> anyhow::Result<()> {
         check(&session)?;
-        let mut sessions = self.load()?;
-        sessions.retain(|s| s["id"] != session["id"]);
-        sessions.push(session);
-        self.write(sessions)
+        self.modify(|sessions| {
+            sessions.retain(|s| s["id"] != session["id"]);
+            sessions.push(session);
+            ((), true)
+        })
     }
 
     /// Returns whether the session was there.
     pub fn delete(&self, id: &str) -> anyhow::Result<bool> {
-        let mut sessions = self.load()?;
-        let before = sessions.len();
-        sessions.retain(|s| s["id"] != id);
-        let found = sessions.len() != before;
-        if found {
-            self.write(sessions)?;
-        }
-        Ok(found)
+        self.modify(|sessions| {
+            let before = sessions.len();
+            sessions.retain(|s| s["id"] != id);
+            let found = sessions.len() != before;
+            (found, found)
+        })
     }
 
     /// Delete everything; returns how many sessions there were.
     pub fn clear(&self) -> anyhow::Result<usize> {
-        let n = self.load()?.len();
-        if n > 0 {
-            self.write(Vec::new())?;
-        }
-        Ok(n)
+        self.modify(|sessions| {
+            let n = sessions.iter().filter(|s| check(s).is_ok()).count();
+            let write = !sessions.is_empty();
+            sessions.clear();
+            (n, write)
+        })
     }
 
     /// Add sessions from elsewhere (the interface's old local storage), skipping invalid ones and ones
     /// already here. Returns how many were added.
     pub fn import(&self, incoming: Vec<Value>) -> anyhow::Result<usize> {
-        let mut sessions = self.load()?;
-        let mut added = 0;
-        for s in incoming {
-            if check(&s).is_ok() && !sessions.iter().any(|have| have["id"] == s["id"]) {
-                sessions.push(s);
-                added += 1;
+        self.modify(|sessions| {
+            let mut added = 0;
+            for s in incoming {
+                if check(&s).is_ok() && !sessions.iter().any(|have| have["id"] == s["id"]) {
+                    sessions.push(s);
+                    added += 1;
+                }
             }
-        }
-        if added > 0 {
-            self.write(sessions)?;
-        }
-        Ok(added)
+            (added, added > 0)
+        })
     }
 }
 
@@ -232,6 +248,39 @@ mod tests {
         let added = s.import(vec![session("have", 5, "q"), session("new", 6, "q"), json!({"nonsense": true})]).unwrap();
         assert_eq!(added, 1);
         assert_eq!(s.summaries().unwrap().len(), 2);
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn entries_this_version_cannot_read_survive_a_rewrite() {
+        let (dir, s) = store("keep");
+        std::fs::create_dir_all(&dir).unwrap();
+        let future = json!({"id": "from-the-future", "prompt": "q", "askedAt": "later"});
+        std::fs::write(s.path(), json!({"version": 2, "sessions": [future]}).to_string()).unwrap();
+        assert!(s.summaries().unwrap().is_empty(), "not listed");
+        s.save(session("new", 5, "q")).unwrap();
+        s.delete("new").unwrap();
+        let text = std::fs::read_to_string(s.path()).unwrap();
+        assert!(text.contains("from-the-future"), "kept: {text}");
+        assert_eq!(s.clear().unwrap(), 0);
+        assert!(!std::fs::read_to_string(s.path()).unwrap().contains("from-the-future"), "clear removes everything");
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn saves_from_several_threads_are_all_kept() {
+        let (dir, s) = store("threads");
+        let s = std::sync::Arc::new(s);
+        let handles: Vec<_> = (0..8)
+            .map(|i| {
+                let s = s.clone();
+                std::thread::spawn(move || s.save(session(&format!("t{i}"), i, "q")).unwrap())
+            })
+            .collect();
+        for h in handles {
+            h.join().unwrap();
+        }
+        assert_eq!(s.summaries().unwrap().len(), 8);
         std::fs::remove_dir_all(dir).unwrap();
     }
 

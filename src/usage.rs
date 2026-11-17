@@ -72,7 +72,12 @@ impl Usage {
 
     /// Record one request under `group` and return today's count including it. With `enforce` and a
     /// `limit`, refuse (and do not count) once the limit is used up.
+    ///
+    /// Other pampas processes (the command line and the app, or two runs at once) share the file, so the
+    /// counts are read again from it under a lock before counting, and written back before the lock is
+    /// released; otherwise each would overwrite the other's increments.
     pub fn acquire(&mut self, group: &str, limit: Option<u32>, enforce: bool) -> Result<u32, LimitReached> {
+        let _lock = self.lock_and_refresh();
         let used = self.used(group);
         if let (Some(limit), true) = (limit, enforce)
             && used >= limit
@@ -82,6 +87,20 @@ impl Usage {
         self.counters.insert(group.to_string(), Counter { day: self.today.clone(), count: used + 1 });
         self.save();
         Ok(used + 1)
+    }
+
+    /// Take an exclusive lock on `<path>.lock` and replace the counts with what is on disk now. The lock
+    /// is held until the returned file is dropped. Without a path, or if the lock cannot be taken or the
+    /// file cannot be read, the counts in memory are used as they are.
+    fn lock_and_refresh(&mut self) -> Option<std::fs::File> {
+        let path = self.path.as_ref()?;
+        let lock = crate::filelock::lock(&path.with_extension("json.lock"))?;
+        if let Ok(text) = std::fs::read_to_string(path)
+            && let Ok(counters) = serde_json::from_str(&text)
+        {
+            self.counters = counters;
+        }
+        Some(lock)
     }
 
     /// Write the counts of today, atomically. A failure is a warning: it must not stop the run.
@@ -169,6 +188,18 @@ mod tests {
         assert_eq!(tomorrow.acquire("g", Some(5), true).unwrap(), 1);
         let saved = std::fs::read_to_string(&path).unwrap();
         assert!(!saved.contains("2026-10-22"), "yesterday's counts are dropped: {saved}");
+    }
+
+    #[test]
+    fn two_users_of_one_file_do_not_lose_counts() {
+        let path = temp_file("shared");
+        let mut a = Usage::load(path.clone(), "2026-10-22".into());
+        let mut b = Usage::load(path.clone(), "2026-10-22".into());
+        a.acquire("g", Some(3), true).unwrap();
+        assert_eq!(b.acquire("g", Some(3), true).unwrap(), 2, "b sees a's request");
+        assert_eq!(a.acquire("g", Some(3), true).unwrap(), 3);
+        assert!(b.acquire("g", Some(3), true).is_err(), "the limit counts both users");
+        assert_eq!(Usage::load(path, "2026-10-22".into()).used("g"), 3);
     }
 
     #[test]

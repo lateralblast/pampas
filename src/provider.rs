@@ -130,6 +130,39 @@ impl ProviderConfig {
     }
 }
 
+/// Whether `used` requests are at least 80% of `limit`, the point from which each request is announced.
+fn near_limit(used: u32, limit: u32) -> bool {
+    u64::from(used) * 5 >= u64::from(limit) * 4
+}
+
+/// A non-success HTTP reply from a chat request.
+#[derive(Debug)]
+pub struct HttpError {
+    pub status: reqwest::StatusCode,
+    pub body: String,
+}
+
+impl std::fmt::Display for HttpError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "HTTP {}: {}", self.status, self.body)
+    }
+}
+
+impl std::error::Error for HttpError {}
+
+/// Whether trying other models can help after `err`. It cannot when the limit is used up, when the
+/// key is refused (every model on the service would be refused too) or when the service was not
+/// reached at all; each pointless attempt would also count against the daily limit.
+fn worth_fallback(err: &anyhow::Error) -> bool {
+    if err.downcast_ref::<LimitReached>().is_some() || err.downcast_ref::<reqwest::Error>().is_some() {
+        return false;
+    }
+    match err.downcast_ref::<HttpError>() {
+        Some(e) => !matches!(e.status.as_u16(), 401 | 403 | 407),
+        None => true,
+    }
+}
+
 /// Any service that speaks the OpenAI `/chat/completions` API.
 pub struct OpenAiCompatible {
     config: ProviderConfig,
@@ -165,7 +198,7 @@ impl OpenAiCompatible {
         let (group, limit) = (self.config.usage_group(), self.config.daily_limit);
         let used = self.usage.lock().expect("usage lock").acquire(group, limit, self.enforce_limits)?;
         if let Some(limit) = limit
-            && used * 5 >= limit * 4
+            && near_limit(used, limit)
         {
             eprintln!("{}: {used} of {limit} daily requests used", self.config.name);
         }
@@ -177,7 +210,7 @@ impl OpenAiCompatible {
         let status = resp.status();
         let text = resp.text().await?;
         if !status.is_success() {
-            return Err(anyhow!("HTTP {status}: {}", text.chars().take(300).collect::<String>()));
+            return Err(HttpError { status, body: text.chars().take(300).collect() }.into());
         }
         parse_reply(&text)
     }
@@ -211,7 +244,7 @@ impl Provider for OpenAiCompatible {
                 (Err(e), None) => return Err(e),
                 (Err(e), Some(Fallback::FreeModels)) => e,
             };
-            if err.downcast_ref::<LimitReached>().is_some() {
+            if !worth_fallback(&err) {
                 return Err(err);
             }
             let candidates = match self.free_models(&self.config.model).await {
@@ -446,6 +479,27 @@ mod tests {
             ProviderEntry::OpenAi(c) => c,
             other => panic!("not an openai entry: {other:?}"),
         }
+    }
+
+    #[test]
+    fn near_limit_is_eighty_percent_and_cannot_overflow() {
+        assert!(!near_limit(7, 10));
+        assert!(near_limit(8, 10));
+        assert!(near_limit(u32::MAX, u32::MAX));
+        assert!(!near_limit(1, u32::MAX));
+    }
+
+    #[test]
+    fn fallback_only_when_another_model_could_help() {
+        let http = |code: u16| anyhow::Error::new(HttpError { status: reqwest::StatusCode::from_u16(code).unwrap(), body: String::new() });
+        assert!(worth_fallback(&http(404)), "model not found");
+        assert!(worth_fallback(&http(429)));
+        assert!(worth_fallback(&http(500)));
+        assert!(!worth_fallback(&http(401)), "a bad key fails for every model");
+        assert!(!worth_fallback(&http(403)));
+        assert!(!worth_fallback(&anyhow::Error::new(LimitReached { group: "g".into(), limit: 1 })));
+        assert!(worth_fallback(&anyhow!("response had no message content")));
+        assert_eq!(http(404).to_string(), "HTTP 404 Not Found: ");
     }
 
     #[test]

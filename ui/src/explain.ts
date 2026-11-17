@@ -32,6 +32,12 @@ export function explainFailure(raw: string): Plain {
       detail: raw,
     };
   }
+  if (t.includes("using this source's browser profile")) {
+    return {
+      summary: "Another pampas run is using this source's browser. Wait for it to finish, then ask again.",
+      detail: raw,
+    };
+  }
   if (t.includes("no chrome or chromium") || t.includes("browser did not start")) {
     return { summary: "The browser for this source could not be started.", detail: raw };
   }

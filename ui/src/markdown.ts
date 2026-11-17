@@ -27,9 +27,13 @@ export function renderInline(src: string): string {
   text = text.replace(/!\[([^\]]*)\]\(([^)\s]*)[^)]*\)/g, (_m, alt: string) => alt);
   text = text.replace(/\[([^\]]+)\]\(([^)\s]+)[^)]*\)/g, (_m, label: string, url: string) => {
     const shown = safeUrl(url.replace(/&amp;/g, "&"));
-    return shown
-      ? `<span class="mdlink" title="${escapeHtml(shown)}">${label}</span> <span class="mdurl">(${escapeHtml(shown)})</span>`
-      : label;
+    if (!shown) return label;
+    // The markup that holds the address is set aside like a code span: the emphasis rules below must not
+    // read the `_` and `*` of an address as markup (that would eat them from the text shown).
+    codes.push(`<span class="mdlink" title="${escapeHtml(shown)}">`);
+    const open = `\u0000${codes.length - 1}\u0000`;
+    codes.push(`<span class="mdurl">(${escapeHtml(shown)})</span>`);
+    return `${open}${label}</span> \u0000${codes.length - 1}\u0000`;
   });
   text = text
     .replace(/\*\*([^*\n]+?)\*\*/g, "<strong>$1</strong>")

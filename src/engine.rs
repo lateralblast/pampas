@@ -363,7 +363,8 @@ pub struct Merge<'a> {
 }
 
 /// Ask the synthesizer to consolidate the answers in `report`, recording the result in it. Returns
-/// notices for the caller to show (nothing to merge, or the synthesizer failed).
+/// notices for the caller to show (nothing to merge, no usable synthesizer, or the synthesizer failed);
+/// none of these is an error, so the separate answers are always kept.
 pub async fn merge_answers(
     report: &mut output::Report,
     providers: &[Box<dyn Provider>],
@@ -377,7 +378,11 @@ pub async fn merge_answers(
             .filter_map(|e| e.outcome.as_deref().ok().map(|text| (e.provider.as_str(), text)))
             .collect();
         match answers.len() {
-            0 => anyhow::bail!("no provider answered, nothing to merge"),
+            0 => {
+                // Like "only one answered": a notice, not a failed merge.
+                notices.push("no provider answered, nothing to merge".to_string());
+                return Ok(notices);
+            }
             1 => {
                 notices.push(format!("only {} answered; nothing to merge", answers[0].0));
                 return Ok(notices);
@@ -388,7 +393,16 @@ pub async fn merge_answers(
 
     // The synthesizer is chosen among providers that are running, not only those that answered.
     let running: Vec<String> = providers.iter().map(|p| p.name().to_string()).collect();
-    let synth = merge::pick_synthesizer(&running, choice.designated, choice.requested)?;
+    // A synthesizer that cannot be chosen is reported, not returned as an error: the answers are already
+    // paid for and the caller must still show them.
+    let synth = match merge::pick_synthesizer(&running, choice.designated, choice.requested) {
+        Ok(name) => name,
+        Err(e) => {
+            notices.push(format!("not merging: {e:#}; showing the separate answers"));
+            report.merge_error = Some(format!("{e:#}"));
+            return Ok(notices);
+        }
+    };
     let synth_provider = providers.iter().find(|p| p.name() == synth).expect("picked from the running providers");
     let timeout = effective_timeout(synth_provider.as_ref(), choice.timeout);
     let merged = match tokio::time::timeout(timeout, synth_provider.ask(&synthesis_prompt)).await {
@@ -409,6 +423,32 @@ pub async fn merge_answers(
 mod tests {
     use super::*;
     use crate::keystore::KeyStore;
+
+    #[tokio::test]
+    async fn merge_problems_keep_the_answers_instead_of_failing_the_run() {
+        let failed = || output::Report {
+            prompt: "q".into(),
+            entries: vec![output::Entry { provider: "a".into(), outcome: Err("HTTP 429".into()) }],
+            merged: None,
+            merge_error: None,
+            show_answers: false,
+        };
+        let choice = || Merge { designated: &[], requested: None, timeout: None };
+
+        let mut none = failed();
+        let notices = merge_answers(&mut none, &[], choice()).await.unwrap();
+        assert!(notices[0].contains("nothing to merge"));
+        assert!(none.merge_error.is_none(), "nothing to merge is not a failed merge");
+
+        let mut two = failed();
+        two.entries.push(output::Entry { provider: "b".into(), outcome: Ok("x".into()) });
+        two.entries.push(output::Entry { provider: "c".into(), outcome: Ok("y".into()) });
+        let missing = Merge { designated: &[], requested: Some("zzz"), timeout: None };
+        let notices = merge_answers(&mut two, &[], missing).await.unwrap();
+        assert!(notices[0].contains("not merging"), "{notices:?}");
+        assert!(two.merge_error.is_some() && two.merged.is_none());
+        assert_eq!(two.entries.len(), 3);
+    }
 
     #[test]
     fn timeout_flag_beats_entry_beats_default() {

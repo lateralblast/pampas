@@ -15,6 +15,11 @@ test("failures are explained in plain words with a next step", () => {
   assert.equal(explainFailure("HTTP 429 slow down").detail, "HTTP 429 slow down", "the original text is kept");
 });
 
+test("a browser profile in use by another run is explained", () => {
+  const raw = "another pampas run is using this source's browser profile (/x/browser/deepseek): wait for it";
+  assert.match(explainFailure(raw).summary, /Another pampas run is using this source's browser/);
+});
+
 test("skipped sources are explained and name their fix", () => {
   const key = explainSkip("skipping provider: groq: no key: set GROQ_API_KEY or run `pampas-cli key set GROQ_API_KEY`");
   assert.equal(key?.provider, "groq");

@@ -25,6 +25,16 @@ fn locate() -> CmdResult<Locations> {
     Locations::locate().map_err(text)
 }
 
+/// Run `work` on a thread meant for blocking, so a slow keychain (a macOS access prompt waits for the
+/// user) or a slow disk never holds up the async runtime, and with it every other command.
+async fn blocking<T, F>(work: F) -> CmdResult<T>
+where
+    T: Send + 'static,
+    F: FnOnce() -> CmdResult<T> + Send + 'static,
+{
+    tauri::async_runtime::spawn_blocking(work).await.map_err(|e| e.to_string())?
+}
+
 #[tauri::command]
 async fn locations() -> CmdResult<Locations> {
     locate()
@@ -32,92 +42,92 @@ async fn locations() -> CmdResult<Locations> {
 
 #[tauri::command]
 async fn list_providers() -> CmdResult<Vec<ProviderInfo>> {
-    logic::list_providers(&locate()?, &keychain()).map_err(text)
+    blocking(move || logic::list_providers(&locate()?, &keychain()).map_err(text)).await
 }
 
 #[tauri::command]
 async fn get_config() -> CmdResult<Vec<Value>> {
-    logic::get_config(&locate()?).map_err(text)
+    blocking(move || logic::get_config(&locate()?).map_err(text)).await
 }
 
 #[tauri::command]
 async fn example_config() -> CmdResult<Vec<Value>> {
-    logic::example_config().map_err(text)
+    blocking(move || logic::example_config().map_err(text)).await
 }
 
 #[tauri::command]
 async fn validate_config(entries: Vec<Value>) -> CmdResult<()> {
-    logic::validate_config(&entries).map_err(text)
+    blocking(move || logic::validate_config(&entries).map_err(text)).await
 }
 
 #[tauri::command]
 async fn save_config(entries: Vec<Value>) -> CmdResult<()> {
-    logic::save_config(&locate()?, &entries).map_err(text)
+    blocking(move || logic::save_config(&locate()?, &entries).map_err(text)).await
 }
 
 #[tauri::command]
 async fn create_config() -> CmdResult<()> {
-    logic::create_config(&locate()?).map_err(text)
+    blocking(move || logic::create_config(&locate()?).map_err(text)).await
 }
 
 #[tauri::command]
 async fn set_key(name: String, value: String) -> CmdResult<()> {
-    logic::set_key(&keychain(), &name, &value).map_err(text)
+    blocking(move || logic::set_key(&keychain(), &name, &value).map_err(text)).await
 }
 
 #[tauri::command]
 async fn delete_key(name: String) -> CmdResult<bool> {
-    logic::delete_key(&keychain(), &name).map_err(text)
+    blocking(move || logic::delete_key(&keychain(), &name).map_err(text)).await
 }
 
 #[tauri::command]
 async fn list_settings() -> CmdResult<Vec<SettingInfo>> {
-    logic::list_settings(&locate()?).map_err(text)
+    blocking(move || logic::list_settings(&locate()?).map_err(text)).await
 }
 
 #[tauri::command]
 async fn set_setting(name: String, value: String) -> CmdResult<()> {
-    logic::set_setting(&locate()?, &name, &value).map_err(text)
+    blocking(move || logic::set_setting(&locate()?, &name, &value).map_err(text)).await
 }
 
 #[tauri::command]
 async fn delete_setting(name: String) -> CmdResult<bool> {
-    logic::delete_setting(&locate()?, &name).map_err(text)
+    blocking(move || logic::delete_setting(&locate()?, &name).map_err(text)).await
 }
 
 #[tauri::command]
 async fn usage() -> CmdResult<Vec<UsageInfo>> {
-    logic::usage(&locate()?).map_err(text)
+    blocking(move || logic::usage(&locate()?).map_err(text)).await
 }
 
 #[tauri::command]
 async fn list_history() -> CmdResult<Vec<pampas::history::Summary>> {
-    logic::list_history(&locate()?).map_err(text)
+    blocking(move || logic::list_history(&locate()?).map_err(text)).await
 }
 
 #[tauri::command]
 async fn get_history(id: String) -> CmdResult<Value> {
-    logic::get_history(&locate()?, &id).map_err(text)
+    blocking(move || logic::get_history(&locate()?, &id).map_err(text)).await
 }
 
 #[tauri::command]
 async fn save_history(session: Value) -> CmdResult<()> {
-    logic::save_history(&locate()?, session).map_err(text)
+    blocking(move || logic::save_history(&locate()?, session).map_err(text)).await
 }
 
 #[tauri::command]
 async fn delete_history(id: String) -> CmdResult<bool> {
-    logic::delete_history(&locate()?, &id).map_err(text)
+    blocking(move || logic::delete_history(&locate()?, &id).map_err(text)).await
 }
 
 #[tauri::command]
 async fn clear_history() -> CmdResult<usize> {
-    logic::clear_history(&locate()?).map_err(text)
+    blocking(move || logic::clear_history(&locate()?).map_err(text)).await
 }
 
 #[tauri::command]
 async fn import_history(sessions: Vec<Value>) -> CmdResult<usize> {
-    logic::import_history(&locate()?, sessions).map_err(text)
+    blocking(move || logic::import_history(&locate()?, sessions).map_err(text)).await
 }
 
 /// The edition as text in one of the command line's formats, for copying.

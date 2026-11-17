@@ -3,6 +3,7 @@
 
 pub mod browser;
 pub mod engine;
+pub mod filelock;
 pub mod history;
 pub mod keystore;
 pub mod merge;

@@ -357,7 +357,14 @@ pub async fn ask(
     let usage = load_usage(loc.usage.clone());
     let client = reqwest::Client::new();
     let options = BuildOptions { enable: &request.enable, disable: &request.disable, ignore_limits: request.ignore_limits, scrape: request.scrape, headless: request.headless };
-    let built = build_providers(entries(loc)?, &settings, store, &usage, &client, &options)?;
+    // Reading keys can block (a keychain asks the user for access): let the runtime move its other work off this thread.
+    let entries = entries(loc)?;
+    let build = || build_providers(entries, &settings, store, &usage, &client, &options);
+    let built = if tokio::runtime::Handle::current().runtime_flavor() == tokio::runtime::RuntimeFlavor::MultiThread {
+        tokio::task::block_in_place(build)?
+    } else {
+        build()?
+    };
     anyhow::ensure!(
         !built.providers.is_empty(),
         "no usable providers{}",

@@ -4,6 +4,102 @@ Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.1.5] - 2026-11-17
+
+### Fixed
+
+- The **Ask again** button never appeared under an answer on the Ask tab, because the page never marked the question as saved. It now appears once the question has been saved to the history (not when the history is switched off), and asks that question again.
+
+## [1.1.4] - 2026-11-17
+
+### Added
+
+- In the app, a source that failed because another run was using its browser profile now says so in plain words, with the original text under "Technical detail".
+
+## [1.1.3] - 2026-11-17
+
+### Changed
+
+- `pampas-cli "prompt"` now exits with an error ("no provider answered") when every provider asked failed, after printing the failures and writing any `--output`, instead of exiting 0 with nothing printed. A run where at least one provider answered still exits 0. Scripts that relied on the old exit status of a fully failed run need to allow for this.
+
+## [1.1.2] - 2026-11-17
+
+### Fixed
+
+- In the app, saving keys, settings, the config and history, and reading the keychain, now run on a thread meant for blocking work, so a slow keychain (macOS waits for the user's answer to its access prompt) or disk no longer holds up the app's other commands. Reading keys at the start of a question does the same.
+
+## [1.1.1] - 2026-11-17
+
+### Fixed
+
+- In the app, a web address shown after a link in an answer lost its underscores and asterisks (`/_next_/` showed as `/next/` in italics, and the hover text held stray markup). Addresses are now shown exactly.
+
+## [1.1.0] - 2026-11-17
+
+### Fixed
+
+- If moving the old local-storage history into the history file failed, the History tab was left empty even though sessions were saved. The list is now loaded regardless, and the move is tried again next time.
+
+## [1.0.9] - 2026-11-17
+
+### Fixed
+
+- **Ask again** on the Ask tab's own edition would ask whatever had since been typed into the question box instead of that edition's question; it now asks the question it sits under. (That button is not shown there at present: the Ask page never marks an edition as saved, so this only matters once it is.)
+
+## [1.0.8] - 2026-11-17
+
+### Fixed
+
+- `settings.json` is now written beside itself and renamed into place, as the other files are, so a crash while saving a setting cannot leave a half-written file.
+
+## [1.0.7] - 2026-11-17
+
+### Fixed
+
+- `--merge` (and the app's merge switch) threw away every answer when no provider had answered, or when `--synthesizer` named a source that was not running: the run ended with an error and printed nothing, after the requests were already spent. The separate answers are now kept and shown, with a notice saying why nothing was merged (and `merge_error` in the JSON when the synthesizer could not be chosen).
+
+## [1.0.6] - 2026-11-17
+
+### Fixed
+
+- A `daily_limit` above about 858 million no longer overflows the "80% of the limit used" check.
+
+## [1.0.5] - 2026-11-17
+
+### Fixed
+
+- Two runs asking the same browser scrape source at once (or two sources sharing one `profile`) no longer fight over one Chrome: the second now stops at once, saying another run is using the profile, instead of failing with "the browser did not start". The lock is `pampas.lock` in the profile folder.
+
+## [1.0.4] - 2026-11-17
+
+### Fixed
+
+- A browser source whose Chrome never started took about twice as long to fail (two waits of 20 seconds for the browser's port); it now fails after one.
+
+## [1.0.3] - 2026-11-17
+
+### Fixed
+
+- Saving, deleting, clearing or importing history from two places at once (two windows, or the app and a command) could drop one of the changes. These now take a lock (`history.json.lock`). The lock code is shared with `usage.json` in a new `filelock` module.
+
+## [1.0.2] - 2026-11-17
+
+### Fixed
+
+- Saving history deleted entries this version could not read (a session saved by a newer version, say) the next time the file was rewritten. They are now kept, though not listed; `clear` still removes everything.
+
+## [1.0.1] - 2026-11-17
+
+### Fixed
+
+- Request counts could be lost when two pampas processes used `usage.json` at once (the command line and the app, or two runs together): each rewrote the whole file from its own memory, so daily limits could be overshot. Counts are now read again from the file under a lock (`usage.json.lock`) before each request is counted. This needs Rust 1.89 or later to build (`File::lock`).
+
+## [1.0.0] - 2026-11-17
+
+### Fixed
+
+- The `free_models` fallback no longer runs after a refused key (HTTP 401, 403 or 407) or when the service cannot be reached: no other model could answer, and each attempt counted against the daily limit (a bad OpenRouter key used up to 4 of its 50 requests a run).
+
 ## [0.9.9] - 2026-10-27
 
 ### Fixed

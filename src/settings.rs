@@ -49,7 +49,10 @@ impl Settings {
             std::fs::create_dir_all(dir).with_context(|| format!("creating {}", dir.display()))?;
         }
         let text = serde_json::to_string_pretty(&self.values)? + "\n";
-        std::fs::write(path, text).with_context(|| format!("writing {}", path.display()))
+        // Write beside the file and rename, so a crash never leaves half of it.
+        let tmp = path.with_extension("json.tmp");
+        std::fs::write(&tmp, text).with_context(|| format!("writing {}", tmp.display()))?;
+        std::fs::rename(&tmp, path).with_context(|| format!("replacing {}", path.display()))
     }
 
     pub fn get(&self, name: &str) -> Option<String> {

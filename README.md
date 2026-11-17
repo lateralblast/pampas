@@ -2,7 +2,7 @@
 
 # pampas
 
-Version: 0.9.9
+Version: 1.1.5
 
 **pampas** is short for Parallel AI Multi-provider Prompt Aggregator & Synthesizer: a command-line tool and desktop app that send one prompt to several free AI services in parallel and merge the results.
 
@@ -201,7 +201,7 @@ By default each provider's answer is printed under its name. With `--merge`, pam
 
 The synthesizer is `--synthesizer <name>` if given, else the first running entry with `"synthesizer": true`, else the first running provider. It must be a running provider (enabled, with a key, or with its Apple model available), and it also answers the prompt like the others.
 
-Merging costs one extra request to the synthesizer, which matters on free tiers, and the `--timeout` applies to it again. If only one provider answered, that answer is printed as is. If no provider answered, `pampas` exits with an error. If the synthesizer fails, the separate answers are printed instead, with a warning on stderr. A synthesis is a model's reading of the other answers, so check disagreements against the separate answers (`--show-answers`) when it matters.
+Merging costs one extra request to the synthesizer, which matters on free tiers, and the `--timeout` applies to it again. If only one provider answered, that answer is printed as is. If no provider answered, the failures are listed and `pampas` exits with an error (as it does for any run in which every provider fails, with or without `--merge`). If the synthesizer fails, the separate answers are printed instead, with a warning on stderr. A synthesis is a model's reading of the other answers, so check disagreements against the separate answers (`--show-answers`) when it matters.
 
 ## Usage limits
 

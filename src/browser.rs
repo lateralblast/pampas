@@ -204,15 +204,28 @@ pub async fn ask(cfg: &ScrapeConfig, prompt: &str) -> anyhow::Result<String> {
     let input = cfg.input_selector.as_deref().context("a browser source needs `input_selector`")?;
     let answer = cfg.selector.as_deref().context("a browser source needs `selector` for the answer")?;
     let profile = profile_dir(cfg)?;
+    std::fs::create_dir_all(&profile)?;
+    // One run at a time per profile: a second would delete the first's port file and share its Chrome.
+    let _profile_lock = match crate::filelock::try_lock(&profile.join("pampas.lock")) {
+        Ok(lock) => lock,
+        Err(()) => {
+            return Err(anyhow!(
+                "another pampas run is using this source's browser profile ({}): wait for it, or give this source its own `profile`",
+                profile.display()
+            ));
+        }
+    };
     // A stale file from an earlier run would hand us a dead port.
     let _ = std::fs::remove_file(profile.join("DevToolsActivePort"));
-    std::fs::create_dir_all(&profile)?;
     let mut child = command(cfg, cfg.headless, true)?.spawn().context("starting the browser")?;
 
     let result = drive(cfg, prompt, input, answer, &profile).await;
 
     // Closing through the browser lets it save the login; killing it is the fallback.
-    if let Ok((mut page, _)) = reconnect(&profile).await {
+    // Only if the browser got as far as writing its port: otherwise waiting for it again just doubles the delay.
+    if profile.join("DevToolsActivePort").exists()
+        && let Ok((mut page, _)) = reconnect(&profile).await
+    {
         let _ = page.call("Browser.close", json!({})).await;
     }
     if tokio::time::timeout(Duration::from_secs(5), child.wait()).await.is_err() {

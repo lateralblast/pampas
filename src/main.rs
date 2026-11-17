@@ -741,7 +741,15 @@ async fn main() -> anyhow::Result<()> {
             eprintln!("{notice}");
         }
     }
-    emit(&report, cli.format, cli.output.as_deref())
+    emit(&report, cli.format, cli.output.as_deref())?;
+    // The failures were reported above; a script must still be able to tell that nothing came back.
+    anyhow::ensure!(!none_answered(&report), "no provider answered");
+    Ok(())
+}
+
+/// Whether every provider asked failed.
+fn none_answered(report: &output::Report) -> bool {
+    !report.entries.iter().any(|e| e.outcome.is_ok())
 }
 
 /// Print the rendered report, or write it to `path`. If the file cannot be written the result is
@@ -781,6 +789,14 @@ mod tests {
         }
         let cli = Cli::try_parse_from(["pampas-cli", "--config", "c.json", "hello there"]).unwrap();
         assert_eq!(cli.prompt.as_deref(), Some("hello there"));
+    }
+
+    #[test]
+    fn a_run_where_every_provider_failed_is_an_error() {
+        let entry = |outcome| output::Entry { provider: "a".into(), outcome };
+        let report = |entries| output::Report { prompt: "q".into(), entries, merged: None, merge_error: None, show_answers: false };
+        assert!(none_answered(&report(vec![entry(Err("HTTP 429".into()))])));
+        assert!(!none_answered(&report(vec![entry(Err("x".into())), entry(Ok("y".into()))])));
     }
 
     #[test]
